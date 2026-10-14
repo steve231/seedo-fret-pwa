@@ -1,6 +1,7 @@
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router";
 import { Bell, LogOut } from "lucide-react";
 import { Logo } from "./Logo";
+import { InstallBanner } from "./InstallBanner";
 import type { TabConfig } from "./navTabs";
 import { useAuth } from "../state/AuthContext";
 
@@ -85,6 +86,7 @@ export function AppShell({ tabs, roleLabel, notificationsPath }: AppShellProps) 
         {/* Content */}
         <main className="flex-1 overflow-y-auto pb-24 md:pb-8">
           <div className="max-w-3xl mx-auto w-full px-4 py-4 md:px-8 md:py-8">
+            <InstallBanner />
             <Outlet />
           </div>
         </main>

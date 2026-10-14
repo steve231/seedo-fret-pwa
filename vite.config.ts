@@ -9,7 +9,7 @@ export default defineConfig({
     tailwindcss(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['seedo-logo.png'],
+      includeAssets: ['favicon-32.png', 'apple-touch-icon.png'],
       manifest: {
         name: 'SEEDO Fret',
         short_name: 'SEEDO Fret',
@@ -20,9 +20,9 @@ export default defineConfig({
         start_url: '/',
         scope: '/',
         icons: [
-          { src: '/seedo-logo.png', sizes: '192x192', type: 'image/png' },
-          { src: '/seedo-logo.png', sizes: '512x512', type: 'image/png' },
-          { src: '/seedo-logo.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
+          { src: '/pwa-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
+          { src: '/pwa-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
+          { src: '/maskable-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
         ],
       },
       workbox: {
