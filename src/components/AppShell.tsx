@@ -31,7 +31,7 @@ export function AppShell({ tabs, roleLabel, notificationsPath }: AppShellProps) 
             <h1 className="font-extrabold text-base leading-none" style={{ fontFamily: "Montserrat, sans-serif" }}>
               SEEDO<span className="text-[#FF7A00]">FRET</span>
             </h1>
-            <p className="text-[10px] text-slate-300 font-medium mt-0.5">{roleLabel} · Pilote Cotonou / Calavi</p>
+            <p className="text-[10px] text-slate-300 font-medium mt-0.5">{roleLabel}</p>
           </div>
         </div>
         <nav className="flex-1 px-3 py-4 space-y-1">
@@ -75,7 +75,7 @@ export function AppShell({ tabs, roleLabel, notificationsPath }: AppShellProps) 
               <h1 className="font-bold text-base leading-none tracking-wide" style={{ fontFamily: "Montserrat, sans-serif" }}>
                 SEEDO<span className="text-[#FF7A00] font-extrabold">FRET</span>
               </h1>
-              <p className="text-[10px] text-slate-300 font-medium">{roleLabel} · Cotonou / Calavi</p>
+              <p className="text-[10px] text-slate-300 font-medium">{roleLabel}</p>
             </div>
           </div>
           <NavLink to={notificationsPath} className="p-1.5 rounded-full bg-white/10 text-slate-200">

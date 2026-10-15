@@ -49,7 +49,7 @@ export default function Pricing() {
 
       <div className="flex items-start gap-2 text-[11px] text-slate-500 bg-slate-50 border border-slate-200 rounded-xl p-3">
         <Info className="h-4 w-4 text-[#FF7A00] shrink-0 mt-0.5" />
-        Estimation basée sur le forfait pilote ({formatFcfa(PRICING.forfait)} + {PRICING.coutKm} FCFA/km + {PRICING.coutTonne.toLocaleString("fr-FR")} FCFA/t). Les tarifs réels restent administrables en back-office.
+        Estimation basée sur le forfait de référence ({formatFcfa(PRICING.forfait)} + {PRICING.coutKm} FCFA/km + {PRICING.coutTonne.toLocaleString("fr-FR")} FCFA/t). Les tarifs réels restent administrables en back-office.
       </div>
     </div>
   );

@@ -22,7 +22,7 @@ export function InstallBanner() {
 
   return (
     <>
-      <div className="mb-4 bg-[#0B2A4A] text-white rounded-2xl p-4 flex items-center gap-3 shadow-sm relative">
+      <div className="mb-4 bg-[#0B2A4A] text-white rounded-2xl p-4 flex items-center gap-3 shadow-sm border border-white/10 relative">
         <button onClick={dismiss} className="absolute top-2 right-2 text-white/50 hover:text-white p-1">
           <X className="h-3.5 w-3.5" />
         </button>

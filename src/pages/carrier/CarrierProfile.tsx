@@ -37,7 +37,7 @@ export default function CarrierProfile() {
           <p className="text-xs font-bold text-slate-900">Véhicule</p>
         </div>
         <p className="text-xs text-slate-600">Camion Bâché 15 Tonnes (Volvo FH)</p>
-        <p className="text-[10px] text-slate-400 mt-0.5">Capacité : 15t • Zone : Cotonou / Calavi</p>
+        <p className="text-[10px] text-slate-400 mt-0.5">Capacité : 15t • Zone : Bénin</p>
       </div>
 
       <div>
