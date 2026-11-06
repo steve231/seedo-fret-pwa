@@ -1,10 +1,19 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
+import {
+  createUserWithEmailAndPassword,
+  onAuthStateChanged,
+  signInWithEmailAndPassword,
+  signOut,
+} from "firebase/auth";
+import { auth } from "../lib/firebase";
+import { api, ApiError } from "../lib/api";
 
 export type UserRole = "shipper" | "fleet_manager" | "admin";
 export type AccountType = "individual" | "business";
 export type FleetManagerStatus = "pending" | "active" | "suspended";
 
 export interface AuthUser {
+  id: string;
   name: string;
   phone: string;
   email: string;
@@ -34,114 +43,142 @@ interface AuthResult {
 interface AuthContextValue {
   user: AuthUser | null;
   loading: boolean;
-  login: (phone: string, password: string) => AuthResult;
-  signup: (input: SignupInput) => AuthResult;
-  logout: () => void;
-  listFleetManagers: () => AuthUser[];
-  setFleetManagerStatus: (phone: string, status: FleetManagerStatus) => void;
-}
-
-const SESSION_KEY = "seedo_fret_session";
-const ACCOUNTS_KEY = "seedo_fret_mock_accounts";
-
-// Compte admin de démonstration : SEEDO ne s'auto-inscrit pas (comme côté
-// backend, POST /users refuse role='admin'), donc on l'amorce une fois
-// plutôt que de laisser l'admin inaccessible tant qu'aucun vrai provisioning
-// n'existe.
-const DEFAULT_ADMIN: AuthUser = {
-  name: "Admin SEEDO",
-  phone: "+229 00 00 00 01",
-  email: "admin@seedofret.com",
-  role: "admin",
-};
-
-/**
- * Authentification simulée en localStorage — en attendant le backend (Firebase Auth
- * + Postgres). Le rôle (shipper/carrier) est choisi à l'inscription et persiste par
- * compte, exactement comme le ferait un vrai profil serveur. Le mot de passe n'est
- * pas vérifié (champ collecté pour la continuité UX, pas de sécurité réelle ici).
- */
-function readAccounts(): Record<string, AuthUser> {
-  try {
-    const accounts = JSON.parse(localStorage.getItem(ACCOUNTS_KEY) ?? "{}");
-    if (!accounts[DEFAULT_ADMIN.phone]) {
-      accounts[DEFAULT_ADMIN.phone] = DEFAULT_ADMIN;
-      localStorage.setItem(ACCOUNTS_KEY, JSON.stringify(accounts));
-    }
-    return accounts;
-  } catch {
-    return { [DEFAULT_ADMIN.phone]: DEFAULT_ADMIN };
-  }
+  login: (email: string, password: string) => Promise<AuthResult>;
+  signup: (input: SignupInput) => Promise<AuthResult>;
+  logout: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
+interface MeResponse {
+  id: string;
+  role: UserRole;
+  full_name: string;
+  phone: string;
+  email: string | null;
+  city: string | null;
+  account_type: AccountType | null;
+  fleet_manager_status: FleetManagerStatus | null;
+}
+
+interface UserCreateResponse {
+  id: string;
+  role: UserRole;
+  full_name: string;
+  phone: string;
+  email: string | null;
+  city: string | null;
+  account_type: AccountType;
+  created_at: string;
+}
+
+function fromMe(me: MeResponse): AuthUser {
+  return {
+    id: me.id,
+    name: me.full_name,
+    phone: me.phone,
+    email: me.email ?? "",
+    role: me.role,
+    accountType: me.account_type ?? undefined,
+    fleetManagerStatus: me.fleet_manager_status ?? undefined,
+  };
+}
+
+/**
+ * Authentification Firebase réelle (email/mot de passe — le palier
+ * gratuit Spark ne couvre pas l'auth par SMS, voir discussion produit).
+ * Firebase gère l'identité ; le profil métier (rôle, statut, etc.) vit
+ * dans Postgres (Neon) et se récupère via GET /users/me.
+ */
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
+  // login()/signup() pilotent déjà explicitement `user` de bout en bout ;
+  // pendant qu'ils tournent, le listener ne doit pas interférer — sinon il
+  // peut appeler /users/me avant que POST /users ait fini de créer le
+  // profil (juste après la création du compte Firebase) et écraser l'état
+  // avec un faux "non connecté".
+  const explicitFlowInProgress = React.useRef(false);
 
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem(SESSION_KEY);
-      if (saved) setUser(JSON.parse(saved));
-    } catch {
-      // session illisible, on repart sans utilisateur connecté
-    }
-    setLoading(false);
+    const unsubscribe = onAuthStateChanged(auth, async firebaseUser => {
+      if (explicitFlowInProgress.current) return;
+      if (!firebaseUser) {
+        setUser(null);
+        setLoading(false);
+        return;
+      }
+      try {
+        const me = await api.get<MeResponse>("/users/me");
+        setUser(fromMe(me));
+      } catch {
+        // Compte Firebase authentifié mais profil métier introuvable
+        // (POST /users jamais terminé) — pas de session fantôme.
+        setUser(null);
+      }
+      setLoading(false);
+    });
+    return unsubscribe;
   }, []);
 
-  const persistSession = (u: AuthUser | null) => {
-    setUser(u);
-    if (u) localStorage.setItem(SESSION_KEY, JSON.stringify(u));
-    else localStorage.removeItem(SESSION_KEY);
+  const login: AuthContextValue["login"] = async (email, password) => {
+    explicitFlowInProgress.current = true;
+    try {
+      await signInWithEmailAndPassword(auth, email, password);
+      const me = await api.get<MeResponse>("/users/me");
+      const authUser = fromMe(me);
+      setUser(authUser);
+      return { ok: true, user: authUser };
+    } catch (err) {
+      return { ok: false, error: loginErrorMessage(err) };
+    } finally {
+      explicitFlowInProgress.current = false;
+    }
   };
 
-  const login: AuthContextValue["login"] = (phone, password) => {
-    if (!phone || !password) return { ok: false, error: "Téléphone et mot de passe requis." };
-    const accounts = readAccounts();
-    const account = accounts[phone];
-    if (!account) return { ok: false, error: "Aucun compte trouvé avec ce numéro." };
-    persistSession(account);
-    return { ok: true, user: account };
+  const signup: AuthContextValue["signup"] = async ({ name, phone, email, password, role, accountType }) => {
+    explicitFlowInProgress.current = true;
+    try {
+      const credential = await createUserWithEmailAndPassword(auth, email, password);
+      try {
+        const created = await api.post<UserCreateResponse>("/users", {
+          role,
+          full_name: name,
+          phone,
+          email,
+          account_type: accountType,
+        });
+        const authUser: AuthUser = {
+          id: created.id,
+          name: created.full_name,
+          phone: created.phone,
+          email: created.email ?? "",
+          role: created.role,
+          accountType: created.account_type,
+          fleetManagerStatus: role === "fleet_manager" ? "pending" : undefined,
+        };
+        setUser(authUser);
+        return { ok: true, user: authUser };
+      } catch (err) {
+        // Le compte Firebase existe mais le profil métier a échoué à se
+        // créer — on nettoie plutôt que de laisser un compte fantôme.
+        await credential.user.delete().catch(() => {});
+        throw err;
+      }
+    } catch (err) {
+      return { ok: false, error: signupErrorMessage(err) };
+    } finally {
+      explicitFlowInProgress.current = false;
+    }
   };
 
-  const signup: AuthContextValue["signup"] = ({ name, phone, email, role, accountType }) => {
-    if (!name || !phone || !email) return { ok: false, error: "Tous les champs sont requis." };
-    const accounts = readAccounts();
-    if (accounts[phone]) return { ok: false, error: "Un compte existe déjà avec ce numéro." };
-    const newUser: AuthUser = {
-      name,
-      phone,
-      email,
-      role,
-      accountType,
-      fleetManagerStatus: role === "fleet_manager" ? "pending" : undefined,
-    };
-    accounts[phone] = newUser;
-    localStorage.setItem(ACCOUNTS_KEY, JSON.stringify(accounts));
-    persistSession(newUser);
-    return { ok: true, user: newUser };
-  };
-
-  const logout = () => persistSession(null);
-
-  const listFleetManagers: AuthContextValue["listFleetManagers"] = () => {
-    return Object.values(readAccounts()).filter(a => a.role === "fleet_manager");
-  };
-
-  const setFleetManagerStatus: AuthContextValue["setFleetManagerStatus"] = (phone, status) => {
-    const accounts = readAccounts();
-    const account = accounts[phone];
-    if (!account || account.role !== "fleet_manager") return;
-    account.fleetManagerStatus = status;
-    localStorage.setItem(ACCOUNTS_KEY, JSON.stringify(accounts));
-    // Si c'est le compte actuellement connecté (cas rare en pratique, mais
-    // possible en test), on reflète le changement immédiatement.
-    if (user?.phone === phone) persistSession(account);
+  const logout = async () => {
+    await signOut(auth);
+    setUser(null);
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, signup, logout, listFleetManagers, setFleetManagerStatus }}>
+    <AuthContext.Provider value={{ user, loading, login, signup, logout }}>
       {children}
     </AuthContext.Provider>
   );
@@ -157,4 +194,22 @@ export function roleHome(role: UserRole): string {
   if (role === "shipper") return "/";
   if (role === "admin") return "/admin/gestionnaires";
   return "/flotte";
+}
+
+function signupErrorMessage(err: unknown): string {
+  if (err instanceof ApiError) return err.message;
+  const code = (err as { code?: string } | null)?.code;
+  if (code === "auth/email-already-in-use") return "Un compte existe déjà avec cet email.";
+  if (code === "auth/weak-password") return "Mot de passe trop court (6 caractères minimum).";
+  if (code === "auth/invalid-email") return "Adresse email invalide.";
+  return "Inscription impossible. Réessayez.";
+}
+
+function loginErrorMessage(err: unknown): string {
+  if (err instanceof ApiError) return err.message;
+  const code = (err as { code?: string } | null)?.code;
+  if (code === "auth/invalid-credential" || code === "auth/wrong-password" || code === "auth/user-not-found") {
+    return "Email ou mot de passe incorrect.";
+  }
+  return "Connexion impossible. Réessayez.";
 }

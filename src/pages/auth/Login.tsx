@@ -1,21 +1,24 @@
 import { useState } from "react";
 import { useNavigate, Link } from "react-router";
-import { LogIn, Eye, EyeOff, AlertCircle } from "lucide-react";
+import { LogIn, Eye, EyeOff, AlertCircle, Loader2 } from "lucide-react";
 import { AuthLayout } from "../../components/AuthLayout";
 import { useAuth, roleHome } from "../../state/AuthContext";
 
 export default function Login() {
   const navigate = useNavigate();
   const { login } = useAuth();
-  const [phone, setPhone] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-    const result = login(phone, password);
+    setSubmitting(true);
+    const result = await login(email, password);
+    setSubmitting(false);
     if (!result.ok || !result.user) {
       setError(result.error ?? "Connexion impossible.");
       return;
@@ -30,9 +33,9 @@ export default function Login() {
 
       <form onSubmit={handleSubmit} className="space-y-3.5">
         <div>
-          <label className="block text-xs font-semibold text-slate-600 mb-1">Téléphone</label>
-          <input type="tel" required value={phone} onChange={e => setPhone(e.target.value)}
-            placeholder="+229 XX XX XX XX XX"
+          <label className="block text-xs font-semibold text-slate-600 mb-1">Email</label>
+          <input type="email" required value={email} onChange={e => setEmail(e.target.value)}
+            placeholder="votre@email.com"
             className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm font-medium focus:ring-2 focus:ring-[#FF7A00] outline-none" />
         </div>
         <div>
@@ -53,9 +56,9 @@ export default function Login() {
           </div>
         )}
 
-        <button type="submit"
-          className="w-full bg-[#FF7A00] hover:bg-[#ff8c1a] text-white font-bold py-3 rounded-xl shadow-lg transition flex items-center justify-center gap-2 text-sm">
-          <LogIn className="h-4 w-4" /> Se connecter
+        <button type="submit" disabled={submitting}
+          className="w-full bg-[#FF7A00] hover:bg-[#ff8c1a] disabled:opacity-60 text-white font-bold py-3 rounded-xl shadow-lg transition flex items-center justify-center gap-2 text-sm">
+          {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <LogIn className="h-4 w-4" />} Se connecter
         </button>
       </form>
 

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate, Link } from "react-router";
-import { Package, Users, ArrowRight, UserPlus, AlertCircle } from "lucide-react";
+import { Package, Users, ArrowRight, UserPlus, AlertCircle, Loader2 } from "lucide-react";
 import { AuthLayout } from "../../components/AuthLayout";
 import { useAuth, roleHome, type AccountType, type UserRole } from "../../state/AuthContext";
 
@@ -15,12 +15,15 @@ export default function Signup() {
   const [role, setRole] = useState<UserRole | null>(null);
   const [form, setForm] = useState({ name: "", phone: "", email: "", password: "", accountType: "individual" as AccountType });
   const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!role) return;
     setError(null);
-    const result = signup({ ...form, role });
+    setSubmitting(true);
+    const result = await signup({ ...form, role });
+    setSubmitting(false);
     if (!result.ok || !result.user) {
       setError(result.error ?? "Inscription impossible.");
       return;
@@ -128,9 +131,9 @@ export default function Signup() {
           </div>
         )}
 
-        <button type="submit"
-          className="w-full bg-[#FF7A00] hover:bg-[#ff8c1a] text-white font-bold py-3 rounded-xl shadow-lg transition flex items-center justify-center gap-2 text-sm mt-1">
-          <UserPlus className="h-4 w-4" /> {role === "fleet_manager" ? "Envoyer ma demande" : "Créer mon compte"}
+        <button type="submit" disabled={submitting}
+          className="w-full bg-[#FF7A00] hover:bg-[#ff8c1a] disabled:opacity-60 text-white font-bold py-3 rounded-xl shadow-lg transition flex items-center justify-center gap-2 text-sm mt-1">
+          {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserPlus className="h-4 w-4" />} {role === "fleet_manager" ? "Envoyer ma demande" : "Créer mon compte"}
         </button>
       </form>
     </AuthLayout>
