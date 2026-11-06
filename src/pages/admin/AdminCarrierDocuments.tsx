@@ -1,12 +1,19 @@
-import { useState } from "react";
-import { Truck, Check, X, RotateCcw, Clock3 } from "lucide-react";
-import { MOCK_CARRIERS, type Carrier } from "../../data/mockCarriers";
+import { useEffect, useState } from "react";
+import { Truck, Check, X, Clock3, Loader2 } from "lucide-react";
+import { api } from "../../lib/api";
 
-function CarrierCard({ carrier, onValidate, onReject, onReset }: {
+interface Carrier {
+  id: string;
+  full_name: string;
+  phone: string;
+  city: string | null;
+  documents_status: "pending" | "validated" | "rejected";
+}
+
+function CarrierCard({ carrier, onValidate, onReject }: {
   carrier: Carrier;
   onValidate?: () => void;
   onReject?: () => void;
-  onReset?: () => void;
 }) {
   return (
     <div className="bg-white border border-slate-100 rounded-2xl p-4 shadow-sm flex items-start gap-3">
@@ -14,9 +21,8 @@ function CarrierCard({ carrier, onValidate, onReject, onReset }: {
         <Truck className="h-5 w-5 text-white" />
       </div>
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-bold text-slate-900 truncate">{carrier.name}</p>
-        <p className="text-[11px] text-slate-500 mt-1">{carrier.phone} • {carrier.city}</p>
-        <p className="text-[11px] text-slate-500 truncate">{carrier.vehicleLabel}</p>
+        <p className="text-sm font-bold text-slate-900 truncate">{carrier.full_name}</p>
+        <p className="text-[11px] text-slate-500 mt-1">{carrier.phone} • {carrier.city ?? "—"}</p>
 
         <div className="flex items-center gap-2 mt-3">
           {onValidate && (
@@ -31,12 +37,6 @@ function CarrierCard({ carrier, onValidate, onReject, onReset }: {
               <X className="h-3.5 w-3.5" /> Rejeter
             </button>
           )}
-          {onReset && (
-            <button onClick={onReset}
-              className="flex items-center gap-1.5 bg-white border border-slate-200 text-slate-500 text-xs font-bold px-3 py-1.5 rounded-xl transition">
-              <RotateCcw className="h-3.5 w-3.5" /> Remettre en attente
-            </button>
-          )}
         </div>
       </div>
     </div>
@@ -44,19 +44,47 @@ function CarrierCard({ carrier, onValidate, onReject, onReset }: {
 }
 
 export default function AdminCarrierDocuments() {
-  const [version, setVersion] = useState(0);
-  const refresh = () => setVersion(v => v + 1);
-  void version;
+  const [pending, setPending] = useState<Carrier[]>([]);
+  const [validated, setValidated] = useState<Carrier[]>([]);
+  const [rejected, setRejected] = useState<Carrier[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const pending = MOCK_CARRIERS.filter(c => c.status === "pending");
-  const active = MOCK_CARRIERS.filter(c => c.status === "active");
-  const rejected = MOCK_CARRIERS.filter(c => c.status === "rejected");
-
-  const setStatus = (id: string, status: Carrier["status"]) => {
-    const carrier = MOCK_CARRIERS.find(c => c.id === id);
-    if (carrier) carrier.status = status;
-    refresh();
+  const load = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const [p, v, r] = await Promise.all([
+        api.get<Carrier[]>("/admin/carriers?documents_status=pending"),
+        api.get<Carrier[]>("/admin/carriers?documents_status=validated"),
+        api.get<Carrier[]>("/admin/carriers?documents_status=rejected"),
+      ]);
+      setPending(p);
+      setValidated(v);
+      setRejected(r);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Chargement impossible.");
+    } finally {
+      setLoading(false);
+    }
   };
+
+  useEffect(() => {
+    load();
+  }, []);
+
+  const setStatus = async (id: string, documents_status: "validated" | "rejected") => {
+    await api.patch(`/admin/carriers/${id}/documents-status`, { documents_status });
+    await load();
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-20 text-slate-400">
+        <Loader2 className="h-6 w-6 animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -66,6 +94,10 @@ export default function AdminCarrierDocuments() {
           Validez les pièces (permis, assurance) transmises par le gestionnaire de flotte pour chaque transporteur qu'il enregistre.
         </p>
       </div>
+
+      {error && (
+        <div className="text-xs text-red-600 bg-red-50 border border-red-100 rounded-xl px-3 py-2">{error}</div>
+      )}
 
       <div>
         <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider mb-2.5 flex items-center gap-1.5">
@@ -77,7 +109,7 @@ export default function AdminCarrierDocuments() {
           <div className="space-y-3">
             {pending.map(c => (
               <CarrierCard key={c.id} carrier={c}
-                onValidate={() => setStatus(c.id, "active")}
+                onValidate={() => setStatus(c.id, "validated")}
                 onReject={() => setStatus(c.id, "rejected")} />
             ))}
           </div>
@@ -85,12 +117,12 @@ export default function AdminCarrierDocuments() {
       </div>
 
       <div>
-        <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider mb-2.5">Validés ({active.length})</h3>
-        {active.length === 0 ? (
+        <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider mb-2.5">Validés ({validated.length})</h3>
+        {validated.length === 0 ? (
           <p className="text-xs text-slate-400">Aucun dossier validé.</p>
         ) : (
           <div className="space-y-3">
-            {active.map(c => (
+            {validated.map(c => (
               <CarrierCard key={c.id} carrier={c} onReject={() => setStatus(c.id, "rejected")} />
             ))}
           </div>
@@ -102,7 +134,7 @@ export default function AdminCarrierDocuments() {
           <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider mb-2.5">Rejetés ({rejected.length})</h3>
           <div className="space-y-3">
             {rejected.map(c => (
-              <CarrierCard key={c.id} carrier={c} onReset={() => setStatus(c.id, "pending")} />
+              <CarrierCard key={c.id} carrier={c} onValidate={() => setStatus(c.id, "validated")} />
             ))}
           </div>
         </div>

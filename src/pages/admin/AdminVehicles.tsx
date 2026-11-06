@@ -1,8 +1,19 @@
-import { useState } from "react";
-import { Truck, Check, Ban, Clock3, Hash } from "lucide-react";
-import { MOCK_VEHICLES, type Vehicle } from "../../data/mockVehicles";
+import { useEffect, useState } from "react";
+import { Truck, Check, Ban, Clock3, Hash, Loader2 } from "lucide-react";
+import { api } from "../../lib/api";
 
-const GABARIT_LABELS: Record<Vehicle["gabarit"], string> = {
+interface Vehicle {
+  id: string;
+  carrier_name: string | null;
+  gabarit: string;
+  carrosserie: string;
+  capacity_weight_kg: number;
+  license_plate: string | null;
+  label: string | null;
+  status: "pending" | "active" | "suspended";
+}
+
+const GABARIT_LABELS: Record<string, string> = {
   leger: "Léger (≤ 3,5t)",
   moyen: "Moyen (3,5t – 19t)",
   lourd: "Lourd (> 19t)",
@@ -19,10 +30,10 @@ function VehicleCard({ vehicle, onApprove, onSuspend }: {
         <Truck className="h-5 w-5 text-white" />
       </div>
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-bold text-slate-900 truncate">{vehicle.label}</p>
-        <p className="text-[11px] text-slate-500 mt-1">{vehicle.carrierName} • {GABARIT_LABELS[vehicle.gabarit]}</p>
-        <p className="text-[11px] text-slate-500">{vehicle.carrosserie} • {vehicle.capacityWeightKg.toLocaleString("fr-FR")} kg</p>
-        <p className="text-[11px] text-slate-400 flex items-center gap-1 mt-0.5"><Hash className="h-3 w-3" /> {vehicle.licensePlate}</p>
+        <p className="text-sm font-bold text-slate-900 truncate">{vehicle.label || `${vehicle.carrosserie} ${vehicle.capacity_weight_kg}kg`}</p>
+        <p className="text-[11px] text-slate-500 mt-1">{vehicle.carrier_name} • {GABARIT_LABELS[vehicle.gabarit] ?? vehicle.gabarit}</p>
+        <p className="text-[11px] text-slate-500">{vehicle.carrosserie} • {vehicle.capacity_weight_kg.toLocaleString("fr-FR")} kg</p>
+        <p className="text-[11px] text-slate-400 flex items-center gap-1 mt-0.5"><Hash className="h-3 w-3" /> {vehicle.license_plate ?? "—"}</p>
 
         {(onApprove || onSuspend) && (
           <div className="flex items-center gap-2 mt-3">
@@ -46,19 +57,47 @@ function VehicleCard({ vehicle, onApprove, onSuspend }: {
 }
 
 export default function AdminVehicles() {
-  const [version, setVersion] = useState(0);
-  const refresh = () => setVersion(v => v + 1);
-  void version;
+  const [pending, setPending] = useState<Vehicle[]>([]);
+  const [active, setActive] = useState<Vehicle[]>([]);
+  const [suspended, setSuspended] = useState<Vehicle[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const pending = MOCK_VEHICLES.filter(v => v.status === "pending");
-  const active = MOCK_VEHICLES.filter(v => v.status === "active");
-  const suspended = MOCK_VEHICLES.filter(v => v.status === "suspended");
-
-  const setStatus = (id: string, status: Vehicle["status"]) => {
-    const vehicle = MOCK_VEHICLES.find(v => v.id === id);
-    if (vehicle) vehicle.status = status;
-    refresh();
+  const load = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const [p, a, s] = await Promise.all([
+        api.get<Vehicle[]>("/admin/vehicles?status=pending"),
+        api.get<Vehicle[]>("/admin/vehicles?status=active"),
+        api.get<Vehicle[]>("/admin/vehicles?status=suspended"),
+      ]);
+      setPending(p);
+      setActive(a);
+      setSuspended(s);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Chargement impossible.");
+    } finally {
+      setLoading(false);
+    }
   };
+
+  useEffect(() => {
+    load();
+  }, []);
+
+  const setStatus = async (id: string, status: "active" | "suspended") => {
+    await api.patch(`/admin/vehicles/${id}/status`, { status });
+    await load();
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-20 text-slate-400">
+        <Loader2 className="h-6 w-6 animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -68,6 +107,10 @@ export default function AdminVehicles() {
           Un véhicule non validé reste invisible du Smart Match — vérifiez les documents (carte grise, assurance) avant validation.
         </p>
       </div>
+
+      {error && (
+        <div className="text-xs text-red-600 bg-red-50 border border-red-100 rounded-xl px-3 py-2">{error}</div>
+      )}
 
       <div>
         <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider mb-2.5 flex items-center gap-1.5">

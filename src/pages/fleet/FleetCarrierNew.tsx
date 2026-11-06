@@ -1,8 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router";
-import { UserPlus, AlertCircle } from "lucide-react";
-import { MOCK_CARRIERS } from "../../data/mockCarriers";
-import { MOCK_VEHICLES } from "../../data/mockVehicles";
+import { UserPlus, AlertCircle, Loader2 } from "lucide-react";
+import { api, ApiError } from "../../lib/api";
 
 const GABARITS = [
   { value: "leger", label: "Léger (≤ 3,5t)" },
@@ -28,49 +27,53 @@ export default function FleetCarrierNew() {
     gabarit: "moyen", carrosserie: "bache", capacityWeightKg: "", label: "", licensePlate: "",
   });
   const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.name || !form.phone || !form.capacityWeightKg) {
       setError("Nom, téléphone et capacité du véhicule sont requis.");
       return;
     }
-    if (MOCK_CARRIERS.some(c => c.phone === form.phone)) {
-      setError("Un transporteur existe déjà avec ce numéro.");
-      return;
-    }
     setError(null);
+    setSubmitting(true);
 
-    const carrosserieLabel = CARROSSERIES.find(c => c.value === form.carrosserie)?.label ?? form.carrosserie;
-    const vehicleLabel = form.label || `Véhicule ${carrosserieLabel} ${form.capacityWeightKg}kg`;
-    const carrierId = `CR-${Math.floor(Math.random() * 900 + 100)}`;
+    try {
+      const carrier = await api.post<{ id: string }>("/carriers", {
+        full_name: form.name,
+        phone: form.phone,
+        city: form.city || null,
+      });
 
-    MOCK_CARRIERS.unshift({
-      id: carrierId,
-      name: form.name,
-      phone: form.phone,
-      city: form.city || "—",
-      vehicleLabel,
-      rating: 5.0,
-      totalTrips: 0,
-      status: "pending",
-    });
+      try {
+        // Déclaré "pending" par défaut côté backend (vehicles.status) :
+        // invisible du Smart Match tant qu'un admin ne l'a pas validé.
+        await api.post("/vehicles", {
+          carrier_id: carrier.id,
+          gabarit: form.gabarit,
+          carrosserie: form.carrosserie,
+          capacity_weight_kg: Number(form.capacityWeightKg),
+          license_plate: form.licensePlate || null,
+          label: form.label || null,
+        });
+      } catch (vehicleErr) {
+        // Le transporteur a été créé mais pas son véhicule — on l'indique
+        // clairement plutôt que de laisser un transporteur sans véhicule
+        // apparaître comme un succès silencieux.
+        setError(
+          `Transporteur enregistré, mais le véhicule n'a pas pu être ajouté : ` +
+          (vehicleErr instanceof ApiError ? vehicleErr.message : "erreur inconnue") +
+          ". Ajoutez-le depuis sa fiche.",
+        );
+        setSubmitting(false);
+        return;
+      }
 
-    // Déclaré "pending" comme côté backend (vehicles.status) : invisible du
-    // Smart Match tant qu'un admin ne l'a pas validé.
-    MOCK_VEHICLES.unshift({
-      id: `VH-${Math.floor(Math.random() * 900 + 100)}`,
-      carrierId,
-      carrierName: form.name,
-      gabarit: form.gabarit as "leger" | "moyen" | "lourd",
-      carrosserie: carrosserieLabel,
-      capacityWeightKg: Number(form.capacityWeightKg),
-      licensePlate: form.licensePlate || "—",
-      label: vehicleLabel,
-      status: "pending",
-    });
-
-    navigate("/flotte/transporteurs", { replace: true });
+      navigate("/flotte/transporteurs", { replace: true });
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Inscription impossible. Réessayez.");
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -152,9 +155,9 @@ export default function FleetCarrierNew() {
           </div>
         )}
 
-        <button type="submit"
-          className="w-full bg-[#FF7A00] hover:bg-[#ff8c1a] text-white font-bold py-3.5 rounded-2xl shadow-lg transition flex items-center justify-center gap-2 text-sm">
-          <UserPlus className="h-4 w-4" /> Enregistrer ce transporteur
+        <button type="submit" disabled={submitting}
+          className="w-full bg-[#FF7A00] hover:bg-[#ff8c1a] disabled:opacity-60 text-white font-bold py-3.5 rounded-2xl shadow-lg transition flex items-center justify-center gap-2 text-sm">
+          {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserPlus className="h-4 w-4" />} Enregistrer ce transporteur
         </button>
       </form>
     </div>
