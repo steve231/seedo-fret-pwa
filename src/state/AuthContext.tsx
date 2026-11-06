@@ -1,12 +1,19 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 
-export type UserRole = "shipper" | "carrier";
+export type UserRole = "shipper" | "fleet_manager" | "admin";
+export type AccountType = "individual" | "business";
+export type FleetManagerStatus = "pending" | "active" | "suspended";
 
 export interface AuthUser {
   name: string;
   phone: string;
   email: string;
   role: UserRole;
+  accountType?: AccountType;
+  // Un gestionnaire de flotte démarre toujours "pending" : SEEDO doit
+  // valider le partenariat avant qu'il puisse enregistrer des
+  // transporteurs. Non pertinent (undefined) pour les autres rôles.
+  fleetManagerStatus?: FleetManagerStatus;
 }
 
 interface SignupInput {
@@ -15,6 +22,7 @@ interface SignupInput {
   email: string;
   password: string;
   role: UserRole;
+  accountType: AccountType;
 }
 
 interface AuthResult {
@@ -29,10 +37,23 @@ interface AuthContextValue {
   login: (phone: string, password: string) => AuthResult;
   signup: (input: SignupInput) => AuthResult;
   logout: () => void;
+  listFleetManagers: () => AuthUser[];
+  setFleetManagerStatus: (phone: string, status: FleetManagerStatus) => void;
 }
 
 const SESSION_KEY = "seedo_fret_session";
 const ACCOUNTS_KEY = "seedo_fret_mock_accounts";
+
+// Compte admin de démonstration : SEEDO ne s'auto-inscrit pas (comme côté
+// backend, POST /users refuse role='admin'), donc on l'amorce une fois
+// plutôt que de laisser l'admin inaccessible tant qu'aucun vrai provisioning
+// n'existe.
+const DEFAULT_ADMIN: AuthUser = {
+  name: "Admin SEEDO",
+  phone: "+229 00 00 00 01",
+  email: "admin@seedofret.com",
+  role: "admin",
+};
 
 /**
  * Authentification simulée en localStorage — en attendant le backend (Firebase Auth
@@ -42,9 +63,14 @@ const ACCOUNTS_KEY = "seedo_fret_mock_accounts";
  */
 function readAccounts(): Record<string, AuthUser> {
   try {
-    return JSON.parse(localStorage.getItem(ACCOUNTS_KEY) ?? "{}");
+    const accounts = JSON.parse(localStorage.getItem(ACCOUNTS_KEY) ?? "{}");
+    if (!accounts[DEFAULT_ADMIN.phone]) {
+      accounts[DEFAULT_ADMIN.phone] = DEFAULT_ADMIN;
+      localStorage.setItem(ACCOUNTS_KEY, JSON.stringify(accounts));
+    }
+    return accounts;
   } catch {
-    return {};
+    return { [DEFAULT_ADMIN.phone]: DEFAULT_ADMIN };
   }
 }
 
@@ -79,11 +105,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return { ok: true, user: account };
   };
 
-  const signup: AuthContextValue["signup"] = ({ name, phone, email, role }) => {
+  const signup: AuthContextValue["signup"] = ({ name, phone, email, role, accountType }) => {
     if (!name || !phone || !email) return { ok: false, error: "Tous les champs sont requis." };
     const accounts = readAccounts();
     if (accounts[phone]) return { ok: false, error: "Un compte existe déjà avec ce numéro." };
-    const newUser: AuthUser = { name, phone, email, role };
+    const newUser: AuthUser = {
+      name,
+      phone,
+      email,
+      role,
+      accountType,
+      fleetManagerStatus: role === "fleet_manager" ? "pending" : undefined,
+    };
     accounts[phone] = newUser;
     localStorage.setItem(ACCOUNTS_KEY, JSON.stringify(accounts));
     persistSession(newUser);
@@ -92,8 +125,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = () => persistSession(null);
 
+  const listFleetManagers: AuthContextValue["listFleetManagers"] = () => {
+    return Object.values(readAccounts()).filter(a => a.role === "fleet_manager");
+  };
+
+  const setFleetManagerStatus: AuthContextValue["setFleetManagerStatus"] = (phone, status) => {
+    const accounts = readAccounts();
+    const account = accounts[phone];
+    if (!account || account.role !== "fleet_manager") return;
+    account.fleetManagerStatus = status;
+    localStorage.setItem(ACCOUNTS_KEY, JSON.stringify(accounts));
+    // Si c'est le compte actuellement connecté (cas rare en pratique, mais
+    // possible en test), on reflète le changement immédiatement.
+    if (user?.phone === phone) persistSession(account);
+  };
+
   return (
-    <AuthContext.Provider value={{ user, loading, login, signup, logout }}>
+    <AuthContext.Provider value={{ user, loading, login, signup, logout, listFleetManagers, setFleetManagerStatus }}>
       {children}
     </AuthContext.Provider>
   );
@@ -106,5 +154,7 @@ export function useAuth(): AuthContextValue {
 }
 
 export function roleHome(role: UserRole): string {
-  return role === "shipper" ? "/" : "/transporteur";
+  if (role === "shipper") return "/";
+  if (role === "admin") return "/admin/gestionnaires";
+  return "/flotte";
 }

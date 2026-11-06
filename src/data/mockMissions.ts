@@ -9,6 +9,8 @@ export interface Mission {
   backhaul: boolean;
   pickupWindow: string;
   offerType: "eco" | "standard" | "express";
+  carrierId: string;
+  carrierName: string;
 }
 
 export const MOCK_MISSIONS: Mission[] = [
@@ -23,6 +25,8 @@ export const MOCK_MISSIONS: Mission[] = [
     backhaul: true,
     pickupWindow: "Aujourd'hui, avant 18h",
     offerType: "standard",
+    carrierId: "CR-001",
+    carrierName: "Koffi Dossou",
   },
   {
     id: "SF-8917",
@@ -35,6 +39,8 @@ export const MOCK_MISSIONS: Mission[] = [
     backhaul: false,
     pickupWindow: "Demain, 08h - 10h",
     offerType: "express",
+    carrierId: "CR-002",
+    carrierName: "Ahmed Sanni",
   },
 ];
 
@@ -47,6 +53,9 @@ export const CURRENT_MISSION: {
   origin: string;
   destination: string;
   price: number;
+  carrierId: string;
+  carrierName: string;
+  carrierPhone: string;
 } = {
   id: "SF-8902",
   shipperName: "Logistique Bénin SA",
@@ -56,4 +65,7 @@ export const CURRENT_MISSION: {
   origin: "Port Autonome de Cotonou",
   destination: "Marché de Gros, Calavi",
   price: 107200,
+  carrierId: "CR-001",
+  carrierName: "Koffi Dossou",
+  carrierPhone: "+229 97 12 34 56",
 };

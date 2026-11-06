@@ -26,7 +26,7 @@ export default function Login() {
   return (
     <AuthLayout>
       <h2 className="font-extrabold text-slate-900 text-lg mb-1" style={{ fontFamily: "Montserrat, sans-serif" }}>Connexion</h2>
-      <p className="text-xs text-slate-500 mb-5">Accédez à votre espace expéditeur ou transporteur.</p>
+      <p className="text-xs text-slate-500 mb-5">Accédez à votre espace expéditeur ou gestionnaire de flotte.</p>
 
       <form onSubmit={handleSubmit} className="space-y-3.5">
         <div>

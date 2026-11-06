@@ -1,7 +1,10 @@
 import { useState } from "react";
-import { CalendarClock, MapPin, Repeat2, Check } from "lucide-react";
+import { CalendarClock, MapPin, Repeat2, Check, Truck } from "lucide-react";
+import { MOCK_CARRIERS } from "../../data/mockCarriers";
 
-export default function CarrierAvailability() {
+export default function FleetAvailability() {
+  const activeCarriers = MOCK_CARRIERS.filter(c => c.status === "active");
+  const [carrierId, setCarrierId] = useState(activeCarriers[0]?.id ?? "");
   const [slot, setSlot] = useState<"now" | "today" | "scheduled">("now");
   const [position, setPosition] = useState("Port Autonome de Cotonou");
   const [backhaul, setBackhaul] = useState(false);
@@ -11,10 +14,26 @@ export default function CarrierAvailability() {
   return (
     <div className="space-y-4">
       <h2 className="font-bold text-slate-900 text-base flex items-center gap-2" style={{ fontFamily: "Montserrat, sans-serif" }}>
-        <CalendarClock className="h-5 w-5 text-[#FF7A00]" /> Déclarer ma disponibilité
+        <CalendarClock className="h-5 w-5 text-[#FF7A00]" /> Déclarer une disponibilité
       </h2>
 
       <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 space-y-4">
+        <div>
+          <label className="block text-xs font-semibold text-slate-600 mb-2 flex items-center gap-1.5">
+            <Truck className="h-3.5 w-3.5 text-[#FF7A00]" /> Pour quel transporteur ?
+          </label>
+          {activeCarriers.length === 0 ? (
+            <p className="text-xs text-slate-500">Aucun transporteur actif pour le moment.</p>
+          ) : (
+            <select value={carrierId} onChange={e => setCarrierId(e.target.value)}
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm font-medium focus:ring-2 focus:ring-[#FF7A00] outline-none">
+              {activeCarriers.map(c => (
+                <option key={c.id} value={c.id}>{c.name} — {c.vehicleLabel}</option>
+              ))}
+            </select>
+          )}
+        </div>
+
         <div>
           <label className="block text-xs font-semibold text-slate-600 mb-2">Créneau</label>
           <div className="grid grid-cols-3 gap-2">
@@ -46,7 +65,7 @@ export default function CarrierAvailability() {
               <Repeat2 className="h-5 w-5 text-amber-600 shrink-0" />
               <div>
                 <p className="text-xs font-bold text-amber-900">Trajet retour optimisé</p>
-                <p className="text-[10px] text-amber-700">Soyez proposé en priorité sur l'axe retour</p>
+                <p className="text-[10px] text-amber-700">Priorité sur l'axe retour</p>
               </div>
             </div>
             <input type="checkbox" checked={backhaul} onChange={e => setBackhaul(e.target.checked)}
@@ -60,9 +79,9 @@ export default function CarrierAvailability() {
         </div>
       </div>
 
-      <button onClick={() => setSaved(true)}
-        className="w-full bg-[#FF7A00] hover:bg-[#ff8c1a] text-white font-bold py-3.5 rounded-2xl shadow-lg transition flex items-center justify-center gap-2 text-sm">
-        {saved ? <><Check className="h-4 w-4" /> Disponibilité enregistrée</> : "Enregistrer ma disponibilité"}
+      <button disabled={!carrierId} onClick={() => setSaved(true)}
+        className="w-full bg-[#FF7A00] hover:bg-[#ff8c1a] disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold py-3.5 rounded-2xl shadow-lg transition flex items-center justify-center gap-2 text-sm">
+        {saved ? <><Check className="h-4 w-4" /> Disponibilité enregistrée</> : "Enregistrer la disponibilité"}
       </button>
     </div>
   );

@@ -1,5 +1,5 @@
 import type { LucideIcon } from "lucide-react";
-import { Truck, Boxes, Wallet, User, ClipboardList, CalendarClock, History, IdCard } from "lucide-react";
+import { Truck, Boxes, Wallet, User, ClipboardList, CalendarClock, Users, IdCard, ShieldCheck, FileCheck2 } from "lucide-react";
 
 export interface TabConfig {
   to: string;
@@ -15,9 +15,15 @@ export const SHIPPER_TABS: TabConfig[] = [
   { to: "/compte", label: "Compte", icon: User, match: p => p.startsWith("/compte") },
 ];
 
-export const CARRIER_TABS: TabConfig[] = [
-  { to: "/transporteur", label: "Missions", icon: ClipboardList, match: p => p === "/transporteur" || p.startsWith("/transporteur/mission") || p.startsWith("/transporteur/course") },
-  { to: "/transporteur/disponibilite", label: "Disponibilité", icon: CalendarClock, match: p => p.startsWith("/transporteur/disponibilite") },
-  { to: "/transporteur/historique", label: "Historique", icon: History, match: p => p.startsWith("/transporteur/historique") },
-  { to: "/transporteur/profil", label: "Profil", icon: IdCard, match: p => p.startsWith("/transporteur/profil") },
+export const ADMIN_TABS: TabConfig[] = [
+  { to: "/admin/gestionnaires", label: "Gestionnaires de flotte", icon: ShieldCheck, match: p => p.startsWith("/admin/gestionnaires") },
+  { to: "/admin/vehicules", label: "Véhicules", icon: Truck, match: p => p.startsWith("/admin/vehicules") },
+  { to: "/admin/documents", label: "Documents transporteurs", icon: FileCheck2, match: p => p.startsWith("/admin/documents") },
+];
+
+export const FLEET_TABS: TabConfig[] = [
+  { to: "/flotte", label: "Courses", icon: ClipboardList, match: p => p === "/flotte" || p.startsWith("/flotte/courses") },
+  { to: "/flotte/transporteurs", label: "Transporteurs", icon: Users, match: p => p.startsWith("/flotte/transporteurs") },
+  { to: "/flotte/disponibilite", label: "Disponibilité", icon: CalendarClock, match: p => p.startsWith("/flotte/disponibilite") },
+  { to: "/flotte/profil", label: "Profil", icon: IdCard, match: p => p.startsWith("/flotte/profil") },
 ];

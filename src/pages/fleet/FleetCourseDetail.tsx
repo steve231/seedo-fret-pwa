@@ -1,33 +1,51 @@
 import { useState } from "react";
 import { useNavigate, useParams, Link } from "react-router";
-import { Navigation, PhoneCall, ArrowRight, LifeBuoy } from "lucide-react";
+import { Navigation, PhoneCall, MessageCircle, ArrowRight, LifeBuoy } from "lucide-react";
 import { CURRENT_MISSION } from "../../data/mockMissions";
 
 const STEPS = ["Transporteur trouvé", "En route vers chargement", "Chargement", "En transit", "Arrivé"];
 
 const STEP_ACTIONS = [
-  "Je pars vers le chargement",
-  "Je suis arrivé au point de chargement",
-  "Marchandise chargée, je démarre",
-  "Je suis arrivé à destination",
+  "Le transporteur part vers le chargement",
+  "Arrivé au point de chargement",
+  "Marchandise chargée, départ",
+  "Arrivé à destination",
 ];
 
-export default function CarrierCourse() {
+export default function FleetCourseDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const [stepIndex, setStepIndex] = useState(0);
   const mission = CURRENT_MISSION;
 
   const atFinalStep = stepIndex === STEPS.length - 1;
+  const whatsappNumber = mission.carrierPhone.replace(/[^0-9+]/g, "");
 
   return (
     <div className="space-y-4">
-      <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100">
-        <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-3">
+      <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 space-y-3">
+        <div className="flex items-center justify-between border-b border-slate-100 pb-3">
           <span className="bg-blue-100 text-blue-800 text-[10px] font-bold px-2.5 py-0.5 rounded-full">● Course en cours</span>
           <span className="text-xs font-bold text-slate-400">#{id}</span>
         </div>
+
         <div className="space-y-1.5">
+          <p className="text-xs text-slate-500">Transporteur assigné</p>
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-bold text-slate-900">{mission.carrierName}</p>
+            <div className="flex items-center gap-3">
+              <a href={`https://wa.me/${whatsappNumber}`} target="_blank" rel="noopener noreferrer"
+                className="flex items-center gap-1 text-emerald-600 text-xs font-semibold">
+                <MessageCircle className="h-3.5 w-3.5" /> WhatsApp
+              </a>
+              <a href={`tel:${mission.carrierPhone}`} className="flex items-center gap-1 text-[#FF7A00] text-xs font-semibold">
+                <PhoneCall className="h-3.5 w-3.5" /> Appeler
+              </a>
+            </div>
+          </div>
+        </div>
+
+        <div className="space-y-1.5 pt-2 border-t border-slate-100">
           <p className="text-xs text-slate-500">Expéditeur</p>
           <div className="flex items-center justify-between">
             <p className="text-sm font-bold text-slate-900">{mission.shipperName}</p>
@@ -58,6 +76,9 @@ export default function CarrierCourse() {
             );
           })}
         </div>
+        <p className="text-[10px] text-slate-400 pt-1 border-t border-slate-100">
+          Faites avancer le statut d'après les retours du transporteur par téléphone ou WhatsApp.
+        </p>
       </div>
 
       <button className="w-full bg-white border-2 border-[#0B2A4A] text-[#0B2A4A] font-bold py-3 rounded-2xl flex items-center justify-center gap-2 text-sm">
@@ -65,7 +86,7 @@ export default function CarrierCourse() {
       </button>
 
       {atFinalStep ? (
-        <button onClick={() => navigate(`/transporteur/course/${id}/confirmation`)}
+        <button onClick={() => navigate(`/flotte/courses/${id}/confirmation`)}
           className="w-full bg-[#0B2A4A] hover:bg-[#14325C] text-white font-bold py-3.5 rounded-2xl shadow-lg transition flex items-center justify-center gap-2 text-sm">
           Confirmer la livraison <ArrowRight className="h-4 w-4" />
         </button>
@@ -76,7 +97,7 @@ export default function CarrierCourse() {
         </button>
       )}
 
-      <Link to={`/transporteur/support?course=${id}`}
+      <Link to={`/flotte/support?course=${id}`}
         className="w-full flex items-center justify-center gap-2 text-xs font-semibold text-slate-500 bg-white border border-slate-200 rounded-2xl py-3">
         <LifeBuoy className="h-4 w-4" /> Signaler un problème sur cette course
       </Link>

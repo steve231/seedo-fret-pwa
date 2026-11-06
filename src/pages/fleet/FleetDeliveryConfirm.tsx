@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useNavigate, useParams } from "react-router";
 import { ShieldCheck, Camera, CheckCircle2 } from "lucide-react";
 
-export default function CarrierDeliveryConfirm() {
+export default function FleetDeliveryConfirm() {
   const { id } = useParams();
   const navigate = useNavigate();
   const [otp, setOtp] = useState(["", "", "", ""]);
@@ -31,9 +31,9 @@ export default function CarrierDeliveryConfirm() {
           <h2 className="font-extrabold text-slate-900 text-lg" style={{ fontFamily: "Montserrat, sans-serif" }}>Course clôturée</h2>
           <p className="text-xs text-slate-500 mt-1">Course #{id} livrée avec succès. Paiement débloqué.</p>
         </div>
-        <button onClick={() => navigate("/transporteur")}
+        <button onClick={() => navigate("/flotte")}
           className="bg-[#FF7A00] hover:bg-[#ff8c1a] text-white font-bold px-6 py-3 rounded-2xl text-sm">
-          Retour aux missions
+          Retour aux courses
         </button>
       </div>
     );
@@ -46,7 +46,7 @@ export default function CarrierDeliveryConfirm() {
       </h2>
 
       <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 space-y-3">
-        <p className="text-xs font-semibold text-slate-600">Code OTP communiqué par l'expéditeur</p>
+        <p className="text-xs font-semibold text-slate-600">Code OTP transmis par le transporteur (reçu de l'expéditeur)</p>
         <div className="flex justify-center gap-3">
           {otp.map((digit, i) => (
             <input key={i} id={`otp-${i}`} type="text" inputMode="numeric" maxLength={1} value={digit}
@@ -57,12 +57,12 @@ export default function CarrierDeliveryConfirm() {
       </div>
 
       <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 space-y-3">
-        <p className="text-xs font-semibold text-slate-600">Photo de preuve (optionnel)</p>
+        <p className="text-xs font-semibold text-slate-600">Photo de preuve (optionnel, transmise par le transporteur)</p>
         <label className="flex items-center justify-center gap-2 border-2 border-dashed border-slate-200 rounded-xl py-6 cursor-pointer hover:border-[#FF7A00]/40 transition">
           <input type="file" accept="image/*" capture="environment" className="hidden"
             onChange={e => setPhotoName(e.target.files?.[0]?.name ?? null)} />
           <Camera className="h-5 w-5 text-slate-400" />
-          <span className="text-xs font-medium text-slate-500">{photoName ?? "Prendre une photo"}</span>
+          <span className="text-xs font-medium text-slate-500">{photoName ?? "Ajouter une photo"}</span>
         </label>
       </div>
 

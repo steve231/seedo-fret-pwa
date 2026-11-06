@@ -1,19 +1,19 @@
 import { useState } from "react";
 import { useNavigate, Link } from "react-router";
-import { Package, Truck, ArrowRight, UserPlus, AlertCircle } from "lucide-react";
+import { Package, Users, ArrowRight, UserPlus, AlertCircle } from "lucide-react";
 import { AuthLayout } from "../../components/AuthLayout";
-import { useAuth, roleHome, type UserRole } from "../../state/AuthContext";
+import { useAuth, roleHome, type AccountType, type UserRole } from "../../state/AuthContext";
 
 const ROLE_OPTIONS: { id: UserRole; icon: React.ReactNode; label: string; desc: string }[] = [
   { id: "shipper", icon: <Package className="h-6 w-6" />, label: "Je veux expédier", desc: "Trouver un véhicule pour transporter une marchandise" },
-  { id: "carrier", icon: <Truck className="h-6 w-6" />, label: "Je suis transporteur", desc: "Recevoir des missions de transport compatibles" },
+  { id: "fleet_manager", icon: <Users className="h-6 w-6" />, label: "Je gère une flotte de transporteurs", desc: "Enregistrer et superviser vos transporteurs, recevoir leurs courses" },
 ];
 
 export default function Signup() {
   const navigate = useNavigate();
   const { signup } = useAuth();
   const [role, setRole] = useState<UserRole | null>(null);
-  const [form, setForm] = useState({ name: "", phone: "", email: "", password: "" });
+  const [form, setForm] = useState({ name: "", phone: "", email: "", password: "", accountType: "individual" as AccountType });
   const [error, setError] = useState<string | null>(null);
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -25,6 +25,9 @@ export default function Signup() {
       setError(result.error ?? "Inscription impossible.");
       return;
     }
+    // Un gestionnaire de flotte démarre "en attente" : roleHome() l'envoie
+    // vers /flotte, qui affiche automatiquement l'écran de validation
+    // tant que SEEDO n'a pas traité sa demande (voir RequireActiveFleetManager).
     navigate(roleHome(result.user.role), { replace: true });
   };
 
@@ -73,6 +76,27 @@ export default function Signup() {
       <p className="text-xs text-slate-500 mb-5">Tous les champs sont requis.</p>
 
       <form onSubmit={handleSubmit} className="space-y-3">
+        {role === "fleet_manager" && (
+          <div>
+            <label className="block text-xs font-semibold text-slate-600 mb-1.5">Type de compte</label>
+            <div className="grid grid-cols-2 gap-2">
+              {([
+                { id: "individual", label: "Individuel" },
+                { id: "business", label: "Entreprise" },
+              ] as const).map(opt => (
+                <button key={opt.id} type="button"
+                  onClick={() => setForm(f => ({ ...f, accountType: opt.id }))}
+                  className={`rounded-xl border py-2.5 text-sm font-semibold transition-all ${
+                    form.accountType === opt.id
+                      ? "border-[#FF7A00] bg-orange-50 text-[#FF7A00]"
+                      : "border-slate-200 text-slate-500"
+                  }`}>
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
         <div>
           <label className="block text-xs font-semibold text-slate-600 mb-1">Nom complet / Entreprise</label>
           <input type="text" required value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
@@ -106,7 +130,7 @@ export default function Signup() {
 
         <button type="submit"
           className="w-full bg-[#FF7A00] hover:bg-[#ff8c1a] text-white font-bold py-3 rounded-xl shadow-lg transition flex items-center justify-center gap-2 text-sm mt-1">
-          <UserPlus className="h-4 w-4" /> Créer mon compte
+          <UserPlus className="h-4 w-4" /> {role === "fleet_manager" ? "Envoyer ma demande" : "Créer mon compte"}
         </button>
       </form>
     </AuthLayout>
