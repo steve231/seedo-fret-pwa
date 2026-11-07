@@ -1,11 +1,37 @@
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router";
-import { Route, Repeat2, Clock, ArrowLeft, ArrowRight } from "lucide-react";
+import { Route, Repeat2, Clock, ArrowLeft, ArrowRight, Navigation, Loader2, AlertCircle } from "lucide-react";
 import { StepHeader } from "../../components/StepHeader";
+import { PlaceAutocomplete } from "../../components/PlaceAutocomplete";
 import { useShipment } from "../../state/ShipmentContext";
+import { getDrivingDistanceKm } from "../../lib/geo";
 
 export default function Step2Route() {
   const navigate = useNavigate();
   const { draft, update } = useShipment();
+  const [computing, setComputing] = useState(false);
+  const [distanceError, setDistanceError] = useState<string | null>(null);
+
+  const bothSelected = draft.originLat !== null && draft.originLng !== null
+    && draft.destinationLat !== null && draft.destinationLng !== null;
+
+  useEffect(() => {
+    if (!bothSelected) return;
+    let cancelled = false;
+    setComputing(true);
+    setDistanceError(null);
+    getDrivingDistanceKm(
+      { lat: draft.originLat!, lng: draft.originLng! },
+      { lat: draft.destinationLat!, lng: draft.destinationLng! },
+    )
+      .then(km => { if (!cancelled) update({ distanceKm: Math.max(1, Math.round(km * 10) / 10) }); })
+      .catch(err => { if (!cancelled) setDistanceError(err instanceof Error ? err.message : "Calcul de distance impossible."); })
+      .finally(() => { if (!cancelled) setComputing(false); });
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draft.originLat, draft.originLng, draft.destinationLat, draft.destinationLng]);
+
+  const canContinue = bothSelected && draft.distanceKm > 0 && !computing;
 
   return (
     <div className="space-y-4">
@@ -13,25 +39,31 @@ export default function Step2Route() {
         <StepHeader icon={Route} title="Itinéraire & option" step={2} total={3} />
 
         <div className="space-y-2">
-          <div className="flex items-center gap-2">
-            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 shrink-0" />
-            <input type="text" value={draft.origin} onChange={e => update({ origin: e.target.value })}
-              placeholder="Lieu de chargement"
-              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-medium focus:ring-2 focus:ring-[#FF7A00] outline-none" />
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="w-2.5 h-2.5 rounded-full bg-[#FF7A00] shrink-0" />
-            <input type="text" value={draft.destination} onChange={e => update({ destination: e.target.value })}
-              placeholder="Lieu de livraison"
-              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-medium focus:ring-2 focus:ring-[#FF7A00] outline-none" />
-          </div>
-          <div>
-            <label className="block text-xs font-semibold text-slate-600 mb-1">Distance estimée (km)</label>
-            <input type="number" value={draft.distanceKm} min={1} max={200}
-              onChange={e => update({ distanceKm: Number(e.target.value) || 1 })}
-              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 focus:ring-2 focus:ring-[#FF7A00] outline-none" />
-            <p className="text-[10px] text-slate-400 mt-1">Calcul automatique par cartographie à venir — estimation manuelle pour l'instant.</p>
-          </div>
+          <PlaceAutocomplete
+            value={draft.origin}
+            placeholder="Rechercher le lieu de chargement"
+            dotClassName="bg-emerald-500"
+            onSelect={place => update({ origin: place.label, originLat: place.lat, originLng: place.lng })}
+          />
+          <PlaceAutocomplete
+            value={draft.destination}
+            placeholder="Rechercher le lieu de livraison"
+            dotClassName="bg-[#FF7A00]"
+            onSelect={place => update({ destination: place.label, destinationLat: place.lat, destinationLng: place.lng })}
+          />
+
+          {bothSelected && (
+            <div className="bg-blue-50 border border-blue-100 p-2.5 rounded-xl flex items-center gap-2 text-xs text-blue-900">
+              <Navigation className="h-4 w-4 text-blue-600 shrink-0" />
+              {computing ? (
+                <span className="flex items-center gap-1.5 text-blue-700"><Loader2 className="h-3.5 w-3.5 animate-spin" /> Calcul de la distance routière…</span>
+              ) : distanceError ? (
+                <span className="text-red-600 flex items-center gap-1.5"><AlertCircle className="h-3.5 w-3.5" /> {distanceError}</span>
+              ) : (
+                <span className="font-semibold">Distance calculée : {draft.distanceKm} km (trajet routier)</span>
+              )}
+            </div>
+          )}
         </div>
 
         <div className="bg-amber-50 border border-amber-200 p-3 rounded-xl flex items-center justify-between">
@@ -72,8 +104,8 @@ export default function Step2Route() {
           className="shrink-0 bg-white border border-slate-200 text-slate-600 font-bold py-3.5 px-4 rounded-2xl transition flex items-center justify-center">
           <ArrowLeft className="h-4 w-4" />
         </button>
-        <button onClick={() => navigate("/nouvelle-demande/offres")}
-          className="flex-1 bg-[#FF7A00] hover:bg-[#ff8c1a] text-white font-bold py-3.5 rounded-2xl shadow-lg transition flex items-center justify-center gap-2 text-sm">
+        <button onClick={() => navigate("/nouvelle-demande/offres")} disabled={!canContinue}
+          className="flex-1 bg-[#FF7A00] hover:bg-[#ff8c1a] disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold py-3.5 rounded-2xl shadow-lg transition flex items-center justify-center gap-2 text-sm">
           Calculer les 3 offres SEEDO <ArrowRight className="h-4 w-4" />
         </button>
       </div>

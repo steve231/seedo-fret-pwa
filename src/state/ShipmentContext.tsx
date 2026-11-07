@@ -24,7 +24,13 @@ export interface ShipmentDraft {
   weight: number;
   volume: number;
   origin: string;
+  originLat: number | null;
+  originLng: number | null;
   destination: string;
+  destinationLat: number | null;
+  destinationLng: number | null;
+  // Calculée automatiquement (distance routière réelle via OSRM) dès que
+  // départ et destination sont sélectionnés — jamais saisie à la main.
   distanceKm: number;
   when: "now" | "scheduled";
   scheduledAt: string;
@@ -44,9 +50,13 @@ const DEFAULT_DRAFT: ShipmentDraft = {
   category: "general",
   weight: 12,
   volume: 25,
-  origin: "Port Autonome de Cotonou",
-  destination: "Marché de Gros, Calavi",
-  distanceKm: 18,
+  origin: "",
+  originLat: null,
+  originLng: null,
+  destination: "",
+  destinationLat: null,
+  destinationLng: null,
+  distanceKm: 0,
   when: "now",
   scheduledAt: "",
   backhaul: true,
