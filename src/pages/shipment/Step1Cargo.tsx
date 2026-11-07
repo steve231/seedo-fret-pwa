@@ -25,19 +25,19 @@ export default function Step1Cargo() {
             </select>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-semibold text-slate-600 mb-1">Poids (Tonnes)</label>
-              <input type="number" value={draft.weight} min={0.5} max={40} step={0.5}
-                onChange={e => update({ weight: Number(e.target.value) || 0.5 })}
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 focus:ring-2 focus:ring-[#FF7A00] outline-none" />
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-slate-600 mb-1">Volume Est. (m³)</label>
-              <input type="number" value={draft.volume} min={1} max={100}
-                onChange={e => update({ volume: Number(e.target.value) || 1 })}
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 focus:ring-2 focus:ring-[#FF7A00] outline-none" />
-            </div>
+          <div>
+            <label className="block text-xs font-semibold text-slate-600 mb-1">Poids (Tonnes)</label>
+            <input type="number" value={draft.weight} min={0.5} max={40} step={0.5}
+              onChange={e => update({ weight: Number(e.target.value) || 0.5 })}
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 focus:ring-2 focus:ring-[#FF7A00] outline-none" />
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-slate-600 mb-1">Détails (optionnel)</label>
+            <textarea value={draft.details} onChange={e => update({ details: e.target.value })}
+              placeholder="Ex: fragile, prévenir avant arrivée, colis empilables…" rows={3}
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-medium focus:ring-2 focus:ring-[#FF7A00] outline-none resize-none" />
+            <p className="text-[10px] text-slate-400 mt-1">Visible par le transporteur qui prendra en charge votre course.</p>
           </div>
 
           <div className="bg-blue-50 border border-blue-100 p-2.5 rounded-xl flex items-center justify-between text-xs text-blue-900">

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams, Link } from "react-router";
-import { Navigation, PhoneCall, MessageCircle, ArrowRight, LifeBuoy, Loader2, AlertCircle } from "lucide-react";
+import { Navigation, PhoneCall, MessageCircle, ArrowRight, LifeBuoy, Loader2, AlertCircle, Info } from "lucide-react";
 import { api, ApiError } from "../../lib/api";
 
 const STEPS = ["transporteur_trouve", "en_route_chargement", "chargement", "en_transit", "arrive"];
@@ -23,6 +23,7 @@ interface OrderTracking {
   status: string;
   origin_label: string;
   destination_label: string;
+  details: string | null;
   shipper_name: string | null;
   shipper_phone: string | null;
   carrier_name: string | null;
@@ -121,6 +122,13 @@ export default function FleetCourseDetail() {
       <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 space-y-3">
         <h2 className="font-bold text-slate-900 text-xs uppercase tracking-wider">Statut du transport</h2>
         <p className="text-[10px] text-slate-400 -mt-2">{order.origin_label} → {order.destination_label}</p>
+
+        {order.details && (
+          <div className="bg-blue-50 border border-blue-100 rounded-xl px-3 py-2.5 flex items-start gap-2">
+            <Info className="h-3.5 w-3.5 text-blue-600 shrink-0 mt-0.5" />
+            <p className="text-xs text-blue-900">{order.details}</p>
+          </div>
+        )}
 
         <div className="space-y-3.5 relative pl-4 border-l-2 border-slate-200">
           {STEPS.map((status, i) => {

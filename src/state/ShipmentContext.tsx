@@ -22,7 +22,7 @@ export interface PriceBreakdown {
 export interface ShipmentDraft {
   category: ShipmentCategory;
   weight: number;
-  volume: number;
+  details: string;
   origin: string;
   originLat: number | null;
   originLng: number | null;
@@ -49,7 +49,7 @@ export interface ShipmentDraft {
 const DEFAULT_DRAFT: ShipmentDraft = {
   category: "general",
   weight: 12,
-  volume: 25,
+  details: "",
   origin: "",
   originLat: null,
   originLng: null,

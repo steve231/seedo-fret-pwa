@@ -44,7 +44,7 @@ export default function Offers() {
         const quote = await api.post<QuoteResponse>("/quote", {
           category: draft.category,
           weight_tonnes: draft.weight,
-          volume_m3: draft.volume,
+          details: draft.details || null,
           origin_label: draft.origin,
           origin_lat: draft.originLat,
           origin_lng: draft.originLng,
