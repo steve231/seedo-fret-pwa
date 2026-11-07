@@ -36,6 +36,41 @@ export async function searchPlaces(query: string): Promise<PlaceResult[]> {
   }));
 }
 
+export async function reverseGeocode(lat: number, lng: number): Promise<string> {
+  const url = new URL("https://nominatim.openstreetmap.org/reverse");
+  url.searchParams.set("lat", String(lat));
+  url.searchParams.set("lon", String(lng));
+  url.searchParams.set("format", "jsonv2");
+  url.searchParams.set("accept-language", "fr");
+
+  const res = await fetch(url.toString());
+  if (!res.ok) throw new Error("Impossible de déterminer l'adresse de cette position.");
+  const data: { display_name?: string } = await res.json();
+  if (!data.display_name) throw new Error("Aucune adresse trouvée pour cette position.");
+  return data.display_name;
+}
+
+/** Géolocalisation GPS du navigateur — gratuite, native, aucune clé. */
+export function getCurrentPosition(): Promise<{ lat: number; lng: number }> {
+  return new Promise((resolve, reject) => {
+    if (!navigator.geolocation) {
+      reject(new Error("La géolocalisation n'est pas disponible sur cet appareil."));
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      pos => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+      err => {
+        if (err.code === err.PERMISSION_DENIED) {
+          reject(new Error("Accès à la position refusé — autorisez la géolocalisation dans votre navigateur."));
+        } else {
+          reject(new Error("Impossible d'obtenir votre position actuelle."));
+        }
+      },
+      { enableHighAccuracy: true, timeout: 10000 },
+    );
+  });
+}
+
 export async function getDrivingDistanceKm(
   origin: { lat: number; lng: number },
   destination: { lat: number; lng: number },
