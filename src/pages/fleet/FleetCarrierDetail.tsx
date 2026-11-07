@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams } from "react-router";
 import { PhoneCall, MessageCircle, Truck, Star, ShieldCheck, Clock3, XCircle, Loader2 } from "lucide-react";
 import { api } from "../../lib/api";
@@ -30,6 +30,7 @@ export default function FleetCarrierDetail() {
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const hasLoadedOnce = useRef(false);
 
   useEffect(() => {
     if (!id) return;
@@ -37,8 +38,8 @@ export default function FleetCarrierDetail() {
       api.get<Carrier>(`/carriers/${id}`),
       api.get<Vehicle[]>(`/carriers/${id}/vehicles`),
     ])
-      .then(([c, v]) => { setCarrier(c); setVehicles(v); })
-      .catch(err => setError(err instanceof Error ? err.message : "Chargement impossible."))
+      .then(([c, v]) => { setCarrier(c); setVehicles(v); hasLoadedOnce.current = true; })
+      .catch(err => { if (!hasLoadedOnce.current) setError(err instanceof Error ? err.message : "Chargement impossible."); })
       .finally(() => setLoading(false));
   }, [id]);
 

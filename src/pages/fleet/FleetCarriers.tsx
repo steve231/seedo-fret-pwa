@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
 import { Star, ChevronRight, UserPlus, Truck, Loader2 } from "lucide-react";
 import { api } from "../../lib/api";
@@ -17,11 +17,12 @@ export default function FleetCarriers() {
   const [carriers, setCarriers] = useState<Carrier[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const hasLoadedOnce = useRef(false);
 
   useEffect(() => {
     api.get<Carrier[]>("/carriers")
-      .then(setCarriers)
-      .catch(err => setError(err instanceof Error ? err.message : "Chargement impossible."))
+      .then(c => { setCarriers(c); hasLoadedOnce.current = true; })
+      .catch(err => { if (!hasLoadedOnce.current) setError(err instanceof Error ? err.message : "Chargement impossible."); })
       .finally(() => setLoading(false));
   }, []);
 

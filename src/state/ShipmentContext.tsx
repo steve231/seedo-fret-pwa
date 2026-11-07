@@ -3,6 +3,22 @@ import type { ShipmentCategory } from "../lib/pricing";
 
 export type OfferType = "eco" | "standard" | "express";
 
+export interface BackendOffer {
+  id: string;
+  type: OfferType;
+  price_fcfa: number;
+  eta_minutes: number;
+  vehicle_gabarit_required: string;
+}
+
+export interface PriceBreakdown {
+  forfait_fcfa: number;
+  distance_cost_fcfa: number;
+  tonnage_cost_fcfa: number;
+  backhaul_discount_pct: number;
+  deferred_payment_markup_pct: number;
+}
+
 export interface ShipmentDraft {
   category: ShipmentCategory;
   weight: number;
@@ -14,6 +30,14 @@ export interface ShipmentDraft {
   scheduledAt: string;
   backhaul: boolean;
   selectedOffer: OfferType;
+
+  // Renseignés par le backend une fois la cotation calculée (POST /quote
+  // puis POST /offers) — null tant que l'étape "Offres" n'a pas tourné.
+  quoteId: string | null;
+  offers: BackendOffer[] | null;
+  paymentMode: "immediate" | "deferred" | null;
+  paymentTermsDays: number;
+  breakdown: PriceBreakdown | null;
 }
 
 const DEFAULT_DRAFT: ShipmentDraft = {
@@ -27,6 +51,11 @@ const DEFAULT_DRAFT: ShipmentDraft = {
   scheduledAt: "",
   backhaul: true,
   selectedOffer: "standard",
+  quoteId: null,
+  offers: null,
+  paymentMode: null,
+  paymentTermsDays: 0,
+  breakdown: null,
 };
 
 interface ShipmentContextValue {

@@ -1,8 +1,28 @@
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router";
-import { Truck, ArrowRight, Package, Clock, ShieldCheck } from "lucide-react";
+import { Truck, ArrowRight, Package, Clock, ShieldCheck, ChevronRight } from "lucide-react";
+import { api } from "../lib/api";
+import { formatFcfa } from "../lib/pricing";
+
+const ACTIVE_STATUSES = new Set(["recherche", "transporteur_trouve", "en_route_chargement", "chargement", "en_transit", "arrive"]);
+
+interface Order {
+  id: string;
+  status: string;
+  price_final_fcfa: number;
+  origin_label: string;
+  destination_label: string;
+}
 
 export default function ShipperHome() {
   const navigate = useNavigate();
+  const [recent, setRecent] = useState<Order[]>([]);
+
+  useEffect(() => {
+    api.get<Order[]>("/orders").then(orders => setRecent(orders.slice(0, 3))).catch(() => {});
+  }, []);
+
+  const goTo = (o: Order) => navigate(ACTIVE_STATUSES.has(o.status) ? `/course/${o.id}` : `/mes-courses/${o.id}`);
 
   return (
     <div className="space-y-5">
@@ -36,10 +56,28 @@ export default function ShipperHome() {
 
       <div>
         <h3 className="text-sm font-bold text-slate-900 mb-3">Courses récentes</h3>
-        <div className="bg-white border border-slate-100 rounded-2xl p-6 text-center">
-          <Package className="h-8 w-8 text-slate-300 mx-auto mb-2" />
-          <p className="text-xs text-slate-400">Aucune course pour le moment.</p>
-        </div>
+        {recent.length === 0 ? (
+          <div className="bg-white border border-slate-100 rounded-2xl p-6 text-center">
+            <Package className="h-8 w-8 text-slate-300 mx-auto mb-2" />
+            <p className="text-xs text-slate-400">Aucune course pour le moment.</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {recent.map(o => (
+              <button key={o.id} onClick={() => goTo(o)}
+                className="w-full bg-white border border-slate-100 rounded-2xl p-4 text-left shadow-sm flex items-center gap-3 hover:border-[#FF7A00]/40 transition">
+                <div className="w-10 h-10 rounded-xl bg-orange-50 flex items-center justify-center shrink-0">
+                  <Package className="h-5 w-5 text-[#FF7A00]" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-bold text-slate-900 truncate">{o.origin_label} → {o.destination_label}</p>
+                  <p className="text-[10px] text-slate-400 mt-0.5">{formatFcfa(o.price_final_fcfa)}</p>
+                </div>
+                <ChevronRight className="h-4 w-4 text-slate-300 shrink-0" />
+              </button>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

@@ -1,25 +1,69 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router";
-import { Truck } from "lucide-react";
+import { Truck, AlertCircle } from "lucide-react";
+import { useShipment } from "../../state/ShipmentContext";
+import { api, ApiError } from "../../lib/api";
 
 const CHECKS = [
   { label: "Vérification conformité charge", result: "OK" },
-  { label: "Calcul proximité & ponctualité", result: "98,4%" },
+  { label: "Calcul proximité & ponctualité", result: "En cours" },
   { label: "Optimisation retour à vide", result: "Activé" },
 ];
 
+interface OrderResponse {
+  id: string;
+}
+
 export default function Matching() {
   const navigate = useNavigate();
+  const { draft, update } = useShipment();
   const [doneCount, setDoneCount] = useState(0);
+  const [error, setError] = useState<string | null>(null);
+  const started = useRef(false);
 
   useEffect(() => {
     const stepTimer = setInterval(() => {
       setDoneCount(c => Math.min(c + 1, CHECKS.length));
     }, 500);
-    const id = `SF-${Math.floor(1000 + Math.random() * 9000)}`;
-    const nav = setTimeout(() => navigate(`/course/${id}`, { replace: true }), 2500);
-    return () => { clearInterval(stepTimer); clearTimeout(nav); };
-  }, [navigate]);
+
+    if (started.current) return () => clearInterval(stepTimer);
+    started.current = true;
+
+    (async () => {
+      if (!draft.offers) {
+        setError("Aucune offre sélectionnée.");
+        return;
+      }
+      const selectedOffer = draft.offers.find(o => o.type === draft.selectedOffer);
+      if (!selectedOffer) {
+        setError("Offre introuvable.");
+        return;
+      }
+      try {
+        const order = await api.post<OrderResponse>("/orders", { offer_id: selectedOffer.id });
+        update({ quoteId: null, offers: null }); // la cotation est consommée, on repart propre
+        navigate(`/course/${order.id}`, { replace: true });
+      } catch (err) {
+        setError(err instanceof ApiError ? err.message : "Impossible de trouver un transporteur pour le moment.");
+      }
+    })();
+
+    return () => clearInterval(stepTimer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  if (error) {
+    return (
+      <div className="text-center py-10 space-y-4">
+        <AlertCircle className="h-10 w-10 text-red-400 mx-auto" />
+        <p className="text-sm text-red-600 max-w-xs mx-auto">{error}</p>
+        <button onClick={() => navigate("/nouvelle-demande/offres")}
+          className="bg-[#FF7A00] hover:bg-[#ff8c1a] text-white font-bold px-6 py-3 rounded-2xl text-sm">
+          Revenir aux offres
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4 text-center py-6">

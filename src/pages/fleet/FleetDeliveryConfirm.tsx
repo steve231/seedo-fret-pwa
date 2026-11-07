@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate, useParams } from "react-router";
-import { ShieldCheck, Camera, CheckCircle2 } from "lucide-react";
+import { ShieldCheck, Camera, CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
+import { api, ApiError } from "../../lib/api";
 
 export default function FleetDeliveryConfirm() {
   const { id } = useParams();
@@ -8,6 +9,8 @@ export default function FleetDeliveryConfirm() {
   const [otp, setOtp] = useState(["", "", "", ""]);
   const [photoName, setPhotoName] = useState<string | null>(null);
   const [done, setDone] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const otpComplete = otp.every(d => d.length === 1);
 
@@ -21,6 +24,21 @@ export default function FleetDeliveryConfirm() {
     }
   };
 
+  const confirm = async () => {
+    setSubmitting(true);
+    setError(null);
+    try {
+      // Pas de stockage de fichiers branché côté backend pour l'instant —
+      // la photo reste un affordage visuel local, non transmise.
+      await api.post(`/orders/${id}/delivery-confirmation`, { otp_code: otp.join(""), photo_url: null });
+      setDone(true);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Confirmation impossible.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   if (done) {
     return (
       <div className="text-center py-10 space-y-4">
@@ -29,7 +47,7 @@ export default function FleetDeliveryConfirm() {
         </div>
         <div>
           <h2 className="font-extrabold text-slate-900 text-lg" style={{ fontFamily: "Montserrat, sans-serif" }}>Course clôturée</h2>
-          <p className="text-xs text-slate-500 mt-1">Course #{id} livrée avec succès. Paiement débloqué.</p>
+          <p className="text-xs text-slate-500 mt-1">Course #{id?.slice(0, 8)} livrée avec succès. Paiement débloqué.</p>
         </div>
         <button onClick={() => navigate("/flotte")}
           className="bg-[#FF7A00] hover:bg-[#ff8c1a] text-white font-bold px-6 py-3 rounded-2xl text-sm">
@@ -66,9 +84,15 @@ export default function FleetDeliveryConfirm() {
         </label>
       </div>
 
-      <button disabled={!otpComplete} onClick={() => setDone(true)}
-        className="w-full bg-[#0B2A4A] hover:bg-[#14325C] disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold py-3.5 rounded-2xl shadow-lg transition text-sm">
-        Clôturer la course
+      {error && (
+        <div className="flex items-center gap-2 text-xs text-red-600 bg-red-50 border border-red-100 rounded-xl px-3 py-2">
+          <AlertCircle className="h-4 w-4 shrink-0" /> {error}
+        </div>
+      )}
+
+      <button disabled={!otpComplete || submitting} onClick={confirm}
+        className="w-full bg-[#0B2A4A] hover:bg-[#14325C] disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold py-3.5 rounded-2xl shadow-lg transition flex items-center justify-center gap-2 text-sm">
+        {submitting && <Loader2 className="h-4 w-4 animate-spin" />} Clôturer la course
       </button>
     </div>
   );
