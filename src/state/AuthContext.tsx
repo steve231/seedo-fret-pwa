@@ -23,6 +23,11 @@ export interface AuthUser {
   // valider le partenariat avant qu'il puisse enregistrer des
   // transporteurs. Non pertinent (undefined) pour les autres rôles.
   fleetManagerStatus?: FleetManagerStatus;
+  // Dossier d'inscription (gestionnaire de flotte) — pièce d'identité
+  // toujours requise, RCCM seulement si accountType === "business".
+  idDocumentUploaded?: boolean;
+  rccmDocumentUploaded?: boolean;
+  contractAccepted?: boolean;
 }
 
 interface SignupInput {
@@ -46,6 +51,9 @@ interface AuthContextValue {
   login: (email: string, password: string) => Promise<AuthResult>;
   signup: (input: SignupInput) => Promise<AuthResult>;
   logout: () => Promise<void>;
+  /** Recharge le profil (GET /users/me) — après upload de document ou
+   * acceptation du contrat, pour que l'état reflète le dossier à jour. */
+  refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -59,6 +67,9 @@ interface MeResponse {
   city: string | null;
   account_type: AccountType | null;
   fleet_manager_status: FleetManagerStatus | null;
+  id_document_uploaded: boolean | null;
+  rccm_document_uploaded: boolean | null;
+  contract_accepted: boolean | null;
 }
 
 interface UserCreateResponse {
@@ -81,6 +92,9 @@ function fromMe(me: MeResponse): AuthUser {
     role: me.role,
     accountType: me.account_type ?? undefined,
     fleetManagerStatus: me.fleet_manager_status ?? undefined,
+    idDocumentUploaded: me.id_document_uploaded ?? undefined,
+    rccmDocumentUploaded: me.rccm_document_uploaded ?? undefined,
+    contractAccepted: me.contract_accepted ?? undefined,
   };
 }
 
@@ -156,6 +170,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           role: created.role,
           accountType: created.account_type,
           fleetManagerStatus: role === "fleet_manager" ? "pending" : undefined,
+          idDocumentUploaded: role === "fleet_manager" ? false : undefined,
+          rccmDocumentUploaded: role === "fleet_manager" ? false : undefined,
+          contractAccepted: role === "fleet_manager" ? false : undefined,
         };
         setUser(authUser);
         return { ok: true, user: authUser };
@@ -177,8 +194,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(null);
   };
 
+  const refreshUser = async () => {
+    if (!auth.currentUser) return;
+    try {
+      const me = await api.get<MeResponse>("/users/me");
+      setUser(fromMe(me));
+    } catch {
+      // Pas de session fantôme si le rechargement échoue — l'état précédent reste affiché.
+    }
+  };
+
   return (
-    <AuthContext.Provider value={{ user, loading, login, signup, logout }}>
+    <AuthContext.Provider value={{ user, loading, login, signup, logout, refreshUser }}>
       {children}
     </AuthContext.Provider>
   );
@@ -188,6 +215,14 @@ export function useAuth(): AuthContextValue {
   const ctx = useContext(AuthContext);
   if (!ctx) throw new Error("useAuth doit être utilisé dans un AuthProvider");
   return ctx;
+}
+
+/** Pièce d'identité toujours requise, RCCM seulement pour un compte entreprise. */
+export function isFleetManagerOnboardingComplete(user: AuthUser): boolean {
+  if (!user.idDocumentUploaded) return false;
+  if (user.accountType === "business" && !user.rccmDocumentUploaded) return false;
+  if (!user.contractAccepted) return false;
+  return true;
 }
 
 export function roleHome(role: UserRole): string {

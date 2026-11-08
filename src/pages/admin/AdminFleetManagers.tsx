@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { Building2, User, Check, Ban, Clock3, Mail, Phone, Loader2 } from "lucide-react";
-import { api } from "../../lib/api";
+import { Building2, User, Check, Ban, Clock3, Mail, Phone, Loader2, Eye, FileCheck2, FileX2 } from "lucide-react";
+import { api, ApiError } from "../../lib/api";
 import type { AccountType } from "../../state/AuthContext";
 
 interface FleetManager {
@@ -11,13 +11,37 @@ interface FleetManager {
   city: string | null;
   account_type: AccountType;
   status: "pending" | "active" | "suspended";
+  id_document_uploaded: boolean;
+  rccm_document_uploaded: boolean;
+  contract_accepted: boolean;
 }
 
-function FleetManagerCard({ account, onApprove, onSuspend }: {
+function DocBadge({ label, ok }: { label: string; ok: boolean }) {
+  return (
+    <span className={`inline-flex items-center gap-1 text-[9px] font-semibold px-1.5 py-0.5 rounded-full ${ok ? "bg-emerald-50 text-emerald-600" : "bg-red-50 text-red-600"}`}>
+      {ok ? <FileCheck2 className="h-2.5 w-2.5" /> : <FileX2 className="h-2.5 w-2.5" />} {label}
+    </span>
+  );
+}
+
+function FleetManagerCard({ account, onApprove, onSuspend, error }: {
   account: FleetManager;
   onApprove?: () => void;
   onSuspend?: () => void;
+  error?: string | null;
 }) {
+  const [viewing, setViewing] = useState<string | null>(null);
+
+  const viewDocument = async (kind: "id_document" | "rccm") => {
+    setViewing(kind);
+    try {
+      const blob = await api.getBlob(`/admin/fleet-managers/${account.id}/documents/${kind}`);
+      window.open(URL.createObjectURL(blob), "_blank");
+    } finally {
+      setViewing(null);
+    }
+  };
+
   return (
     <div className="bg-white border border-slate-100 rounded-2xl p-4 shadow-sm flex items-start gap-3">
       <div className="w-11 h-11 rounded-xl bg-[#0B2A4A] flex items-center justify-center shrink-0">
@@ -32,6 +56,26 @@ function FleetManagerCard({ account, onApprove, onSuspend }: {
         </div>
         <p className="text-[11px] text-slate-500 flex items-center gap-1.5 mt-1"><Phone className="h-3 w-3" /> {account.phone}</p>
         {account.email && <p className="text-[11px] text-slate-500 flex items-center gap-1.5"><Mail className="h-3 w-3" /> {account.email}</p>}
+
+        <div className="flex items-center gap-1.5 mt-2 flex-wrap">
+          <DocBadge label="Pièce d'identité" ok={account.id_document_uploaded} />
+          {account.account_type === "business" && <DocBadge label="RCCM" ok={account.rccm_document_uploaded} />}
+          <DocBadge label="Contrat" ok={account.contract_accepted} />
+          {account.id_document_uploaded && (
+            <button onClick={() => viewDocument("id_document")} disabled={viewing !== null}
+              className="flex items-center gap-1 text-[9px] font-semibold text-[#FF7A00]">
+              {viewing === "id_document" ? <Loader2 className="h-2.5 w-2.5 animate-spin" /> : <Eye className="h-2.5 w-2.5" />} Voir pièce
+            </button>
+          )}
+          {account.account_type === "business" && account.rccm_document_uploaded && (
+            <button onClick={() => viewDocument("rccm")} disabled={viewing !== null}
+              className="flex items-center gap-1 text-[9px] font-semibold text-[#FF7A00]">
+              {viewing === "rccm" ? <Loader2 className="h-2.5 w-2.5 animate-spin" /> : <Eye className="h-2.5 w-2.5" />} Voir RCCM
+            </button>
+          )}
+        </div>
+
+        {error && <p className="text-[10px] text-red-600 mt-2">{error}</p>}
 
         {(onApprove || onSuspend) && (
           <div className="flex items-center gap-2 mt-3">
@@ -60,6 +104,7 @@ export default function AdminFleetManagers() {
   const [suspended, setSuspended] = useState<FleetManager[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [actionErrors, setActionErrors] = useState<Record<string, string>>({});
 
   const load = async () => {
     setLoading(true);
@@ -85,8 +130,13 @@ export default function AdminFleetManagers() {
   }, []);
 
   const setStatus = async (id: string, status: "active" | "suspended") => {
-    await api.patch(`/admin/fleet-managers/${id}/status`, { status });
-    await load();
+    setActionErrors(prev => ({ ...prev, [id]: "" }));
+    try {
+      await api.patch(`/admin/fleet-managers/${id}/status`, { status });
+      await load();
+    } catch (err) {
+      setActionErrors(prev => ({ ...prev, [id]: err instanceof ApiError ? err.message : "Action impossible." }));
+    }
   };
 
   if (loading) {
@@ -117,7 +167,7 @@ export default function AdminFleetManagers() {
         ) : (
           <div className="space-y-3">
             {pending.map(a => (
-              <FleetManagerCard key={a.id} account={a} onApprove={() => setStatus(a.id, "active")} />
+              <FleetManagerCard key={a.id} account={a} error={actionErrors[a.id]} onApprove={() => setStatus(a.id, "active")} />
             ))}
           </div>
         )}
@@ -130,7 +180,7 @@ export default function AdminFleetManagers() {
         ) : (
           <div className="space-y-3">
             {active.map(a => (
-              <FleetManagerCard key={a.id} account={a} onSuspend={() => setStatus(a.id, "suspended")} />
+              <FleetManagerCard key={a.id} account={a} error={actionErrors[a.id]} onSuspend={() => setStatus(a.id, "suspended")} />
             ))}
           </div>
         )}
@@ -141,7 +191,7 @@ export default function AdminFleetManagers() {
           <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider mb-2.5">Suspendus ({suspended.length})</h3>
           <div className="space-y-3">
             {suspended.map(a => (
-              <FleetManagerCard key={a.id} account={a} onApprove={() => setStatus(a.id, "active")} />
+              <FleetManagerCard key={a.id} account={a} error={actionErrors[a.id]} onApprove={() => setStatus(a.id, "active")} />
             ))}
           </div>
         </div>
