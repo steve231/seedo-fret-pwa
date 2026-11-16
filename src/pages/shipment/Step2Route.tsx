@@ -4,13 +4,26 @@ import { Route, Repeat2, Clock, ArrowLeft, ArrowRight, Navigation, Loader2, Aler
 import { StepHeader } from "../../components/StepHeader";
 import { PlaceAutocomplete } from "../../components/PlaceAutocomplete";
 import { useShipment } from "../../state/ShipmentContext";
-import { getDrivingDistanceKm } from "../../lib/geo";
+import { getDrivingDistanceKm, findNearestHub, type PlaceResult } from "../../lib/geo";
+import { getHubs } from "../../lib/zones";
 
 export default function Step2Route() {
   const navigate = useNavigate();
   const { draft, update } = useShipment();
   const [computing, setComputing] = useState(false);
   const [distanceError, setDistanceError] = useState<string | null>(null);
+
+  // Résout le hub le plus proche d'un lieu sélectionné, pour le matching
+  // par corridor (zone d'action des transporteurs) — en plus du pays,
+  // déjà renvoyé par Nominatim avec le lieu lui-même.
+  const resolveHubId = async (place: PlaceResult): Promise<string | null> => {
+    try {
+      const hubs = await getHubs();
+      return findNearestHub({ lat: place.lat, lng: place.lng }, hubs)?.id ?? null;
+    } catch {
+      return null; // pas bloquant : le matching retombera sur la couverture par pays
+    }
+  };
 
   const bothSelected = draft.originLat !== null && draft.originLng !== null
     && draft.destinationLat !== null && draft.destinationLng !== null;
@@ -43,13 +56,19 @@ export default function Step2Route() {
             value={draft.origin}
             placeholder="Rechercher le lieu de chargement"
             dotClassName="bg-emerald-500"
-            onSelect={place => update({ origin: place.label, originLat: place.lat, originLng: place.lng })}
+            onSelect={place => {
+              update({ origin: place.label, originLat: place.lat, originLng: place.lng, originCountry: place.countryCode, originHubId: null });
+              resolveHubId(place).then(hubId => update({ originHubId: hubId }));
+            }}
           />
           <PlaceAutocomplete
             value={draft.destination}
             placeholder="Rechercher le lieu de livraison"
             dotClassName="bg-[#FF7A00]"
-            onSelect={place => update({ destination: place.label, destinationLat: place.lat, destinationLng: place.lng })}
+            onSelect={place => {
+              update({ destination: place.label, destinationLat: place.lat, destinationLng: place.lng, destinationCountry: place.countryCode, destinationHubId: null });
+              resolveHubId(place).then(hubId => update({ destinationHubId: hubId }));
+            }}
           />
 
           {bothSelected && (

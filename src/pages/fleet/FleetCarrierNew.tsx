@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { useNavigate } from "react-router";
-import { UserPlus, AlertCircle, Loader2 } from "lucide-react";
+import { UserPlus, AlertCircle, Loader2, MapPinned } from "lucide-react";
 import { api, ApiError } from "../../lib/api";
+import { ZonePicker, type ZoneEntry } from "../../components/ZonePicker";
 
 const GABARITS = [
   { value: "leger", label: "Léger (≤ 3,5t)" },
@@ -26,6 +27,7 @@ export default function FleetCarrierNew() {
     name: "", phone: "", city: "",
     gabarit: "moyen", carrosserie: "bache", capacityWeightKg: "", label: "", licensePlate: "",
   });
+  const [zones, setZones] = useState<ZoneEntry[]>([{ zone_type: "country", country_code: "BJ" }]);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -43,6 +45,7 @@ export default function FleetCarrierNew() {
         full_name: form.name,
         phone: form.phone,
         city: form.city || null,
+        coverage_zones: zones,
       });
 
       try {
@@ -147,6 +150,16 @@ export default function FleetCarrierNew() {
               placeholder="ex: Camion Bâché 15 Tonnes (Volvo FH)"
               className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm font-medium focus:ring-2 focus:ring-[#FF7A00] outline-none" />
           </div>
+        </div>
+
+        <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 space-y-3">
+          <p className="text-xs font-bold text-slate-900 flex items-center gap-2">
+            <MapPinned className="h-3.5 w-3.5 text-[#FF7A00]" /> Zone d'action
+          </p>
+          <p className="text-[10px] text-slate-500 -mt-2">
+            Où ce transporteur peut-il opérer ? Utilisé pour ne lui proposer que des trajets qu'il couvre réellement.
+          </p>
+          <ZonePicker value={zones} onChange={setZones} />
         </div>
 
         {error && (

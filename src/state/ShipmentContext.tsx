@@ -26,9 +26,16 @@ export interface ShipmentDraft {
   origin: string;
   originLat: number | null;
   originLng: number | null;
+  // Résolus automatiquement à la sélection du lieu (pays via Nominatim,
+  // hub le plus proche en local) — utilisés pour filtrer le matching par
+  // zone d'action des transporteurs. Jamais saisis par l'expéditeur.
+  originCountry: string | null;
+  originHubId: string | null;
   destination: string;
   destinationLat: number | null;
   destinationLng: number | null;
+  destinationCountry: string | null;
+  destinationHubId: string | null;
   // Calculée automatiquement (distance routière réelle via OSRM) dès que
   // départ et destination sont sélectionnés — jamais saisie à la main.
   distanceKm: number;
@@ -53,9 +60,13 @@ const DEFAULT_DRAFT: ShipmentDraft = {
   origin: "",
   originLat: null,
   originLng: null,
+  originCountry: null,
+  originHubId: null,
   destination: "",
   destinationLat: null,
   destinationLng: null,
+  destinationCountry: null,
+  destinationHubId: null,
   distanceKm: 0,
   when: "now",
   scheduledAt: "",

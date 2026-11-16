@@ -55,8 +55,11 @@ export function PlaceAutocomplete({ value, onSelect, placeholder, dotClassName }
     setOpen(false);
     try {
       const { lat, lng } = await getCurrentPosition();
-      const label = await reverseGeocode(lat, lng).catch(() => `Position actuelle (${lat.toFixed(5)}, ${lng.toFixed(5)})`);
-      handleSelect({ label, lat, lng });
+      const { label, countryCode } = await reverseGeocode(lat, lng).catch(() => ({
+        label: `Position actuelle (${lat.toFixed(5)}, ${lng.toFixed(5)})`,
+        countryCode: null,
+      }));
+      handleSelect({ label, lat, lng, countryCode });
     } catch (err) {
       setLocateError(err instanceof Error ? err.message : "Position indisponible.");
     } finally {
