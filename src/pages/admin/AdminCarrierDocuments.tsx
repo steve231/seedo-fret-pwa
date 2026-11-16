@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { Truck, Check, X, Clock3, Loader2 } from "lucide-react";
-import { api } from "../../lib/api";
+import { Truck, Check, X, Clock3, Loader2, Eye, FileCheck2, FileX2 } from "lucide-react";
+import { api, ApiError } from "../../lib/api";
 
 interface Carrier {
   id: string;
@@ -8,13 +8,35 @@ interface Carrier {
   phone: string;
   city: string | null;
   documents_status: "pending" | "validated" | "rejected";
+  license_doc_uploaded: boolean;
 }
 
-function CarrierCard({ carrier, onValidate, onReject }: {
+function DocBadge({ label, ok }: { label: string; ok: boolean }) {
+  return (
+    <span className={`inline-flex items-center gap-1 text-[9px] font-semibold px-1.5 py-0.5 rounded-full ${ok ? "bg-emerald-50 text-emerald-600" : "bg-red-50 text-red-600"}`}>
+      {ok ? <FileCheck2 className="h-2.5 w-2.5" /> : <FileX2 className="h-2.5 w-2.5" />} {label}
+    </span>
+  );
+}
+
+function CarrierCard({ carrier, onValidate, onReject, error }: {
   carrier: Carrier;
   onValidate?: () => void;
   onReject?: () => void;
+  error?: string | null;
 }) {
+  const [viewing, setViewing] = useState(false);
+
+  const viewDocument = async () => {
+    setViewing(true);
+    try {
+      const blob = await api.getBlob(`/admin/carriers/${carrier.id}/documents/license`);
+      window.open(URL.createObjectURL(blob), "_blank");
+    } finally {
+      setViewing(false);
+    }
+  };
+
   return (
     <div className="bg-white border border-slate-100 rounded-2xl p-4 shadow-sm flex items-start gap-3">
       <div className="w-11 h-11 rounded-xl bg-[#0B2A4A] flex items-center justify-center shrink-0">
@@ -23,6 +45,18 @@ function CarrierCard({ carrier, onValidate, onReject }: {
       <div className="flex-1 min-w-0">
         <p className="text-sm font-bold text-slate-900 truncate">{carrier.full_name}</p>
         <p className="text-[11px] text-slate-500 mt-1">{carrier.phone} • {carrier.city ?? "—"}</p>
+
+        <div className="flex items-center gap-1.5 mt-2 flex-wrap">
+          <DocBadge label="Permis de conduire" ok={carrier.license_doc_uploaded} />
+          {carrier.license_doc_uploaded && (
+            <button onClick={viewDocument} disabled={viewing}
+              className="flex items-center gap-1 text-[9px] font-semibold text-[#FF7A00]">
+              {viewing ? <Loader2 className="h-2.5 w-2.5 animate-spin" /> : <Eye className="h-2.5 w-2.5" />} Voir permis
+            </button>
+          )}
+        </div>
+
+        {error && <p className="text-[10px] text-red-600 mt-2">{error}</p>}
 
         <div className="flex items-center gap-2 mt-3">
           {onValidate && (
@@ -49,6 +83,7 @@ export default function AdminCarrierDocuments() {
   const [rejected, setRejected] = useState<Carrier[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [actionErrors, setActionErrors] = useState<Record<string, string>>({});
 
   const load = async () => {
     setLoading(true);
@@ -74,8 +109,13 @@ export default function AdminCarrierDocuments() {
   }, []);
 
   const setStatus = async (id: string, documents_status: "validated" | "rejected") => {
-    await api.patch(`/admin/carriers/${id}/documents-status`, { documents_status });
-    await load();
+    setActionErrors(prev => ({ ...prev, [id]: "" }));
+    try {
+      await api.patch(`/admin/carriers/${id}/documents-status`, { documents_status });
+      await load();
+    } catch (err) {
+      setActionErrors(prev => ({ ...prev, [id]: err instanceof ApiError ? err.message : "Action impossible." }));
+    }
   };
 
   if (loading) {
@@ -108,7 +148,7 @@ export default function AdminCarrierDocuments() {
         ) : (
           <div className="space-y-3">
             {pending.map(c => (
-              <CarrierCard key={c.id} carrier={c}
+              <CarrierCard key={c.id} carrier={c} error={actionErrors[c.id]}
                 onValidate={() => setStatus(c.id, "validated")}
                 onReject={() => setStatus(c.id, "rejected")} />
             ))}
@@ -123,7 +163,7 @@ export default function AdminCarrierDocuments() {
         ) : (
           <div className="space-y-3">
             {validated.map(c => (
-              <CarrierCard key={c.id} carrier={c} onReject={() => setStatus(c.id, "rejected")} />
+              <CarrierCard key={c.id} carrier={c} error={actionErrors[c.id]} onReject={() => setStatus(c.id, "rejected")} />
             ))}
           </div>
         )}
@@ -134,7 +174,7 @@ export default function AdminCarrierDocuments() {
           <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider mb-2.5">Rejetés ({rejected.length})</h3>
           <div className="space-y-3">
             {rejected.map(c => (
-              <CarrierCard key={c.id} carrier={c} onValidate={() => setStatus(c.id, "validated")} />
+              <CarrierCard key={c.id} carrier={c} error={actionErrors[c.id]} onValidate={() => setStatus(c.id, "validated")} />
             ))}
           </div>
         </div>

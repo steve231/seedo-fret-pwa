@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useParams } from "react-router";
-import { PhoneCall, MessageCircle, Truck, Star, ShieldCheck, Clock3, XCircle, Loader2, MapPinned, Pencil, Check, X } from "lucide-react";
+import { PhoneCall, MessageCircle, Truck, Star, ShieldCheck, Clock3, XCircle, Loader2, MapPinned, Pencil, Check, X, FileCheck2, FileX2, Eye, Upload } from "lucide-react";
 import { api, ApiError } from "../../lib/api";
 import { ZonePicker, type ZoneEntry } from "../../components/ZonePicker";
 import { getCountries } from "../../lib/zones";
@@ -24,6 +24,7 @@ interface Carrier {
   rating: number;
   total_trips: number;
   documents_status: "pending" | "validated" | "rejected";
+  license_doc_uploaded: boolean;
   coverage_zones: CoverageZone[];
 }
 
@@ -35,6 +36,51 @@ interface Vehicle {
   license_plate: string | null;
   label: string | null;
   status: "pending" | "active" | "suspended";
+  photo_uploaded: boolean;
+  registration_doc_uploaded: boolean;
+}
+
+function DocBadge({ label, ok }: { label: string; ok: boolean }) {
+  return (
+    <span className={`inline-flex items-center gap-1 text-[9px] font-semibold px-1.5 py-0.5 rounded-full ${ok ? "bg-emerald-50 text-emerald-600" : "bg-red-50 text-red-600"}`}>
+      {ok ? <FileCheck2 className="h-2.5 w-2.5" /> : <FileX2 className="h-2.5 w-2.5" />} {label}
+    </span>
+  );
+}
+
+function DocAction({ label, uploaded, onView, onUpload }: {
+  label: string;
+  uploaded: boolean;
+  onView: () => Promise<void>;
+  onUpload: (file: File) => Promise<void>;
+}) {
+  const [busy, setBusy] = useState(false);
+
+  const handleView = async () => {
+    setBusy(true);
+    try { await onView(); } finally { setBusy(false); }
+  };
+
+  const handlePick = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setBusy(true);
+    try { await onUpload(file); } finally { setBusy(false); e.target.value = ""; }
+  };
+
+  if (uploaded) {
+    return (
+      <button onClick={handleView} disabled={busy} className="flex items-center gap-1 text-[9px] font-semibold text-[#FF7A00]">
+        {busy ? <Loader2 className="h-2.5 w-2.5 animate-spin" /> : <Eye className="h-2.5 w-2.5" />} Voir {label}
+      </button>
+    );
+  }
+  return (
+    <label className="flex items-center gap-1 text-[9px] font-semibold text-[#FF7A00] cursor-pointer">
+      <input type="file" accept="image/jpeg,image/png,image/webp,application/pdf" className="hidden" onChange={handlePick} disabled={busy} />
+      {busy ? <Loader2 className="h-2.5 w-2.5 animate-spin" /> : <Upload className="h-2.5 w-2.5" />} Ajouter {label}
+    </label>
+  );
 }
 
 function zoneLabel(zone: CoverageZone, countryNames: Record<string, string>): string {
@@ -98,6 +144,36 @@ export default function FleetCarrierDetail() {
     } finally {
       setSavingZones(false);
     }
+  };
+
+  const viewCarrierDocument = async () => {
+    if (!id) return;
+    const blob = await api.getBlob(`/carriers/${id}/documents/license`);
+    window.open(URL.createObjectURL(blob), "_blank");
+  };
+
+  const uploadCarrierDocument = async (file: File) => {
+    if (!id) return;
+    const formData = new FormData();
+    formData.append("kind", "license");
+    formData.append("file", file);
+    await api.postForm(`/carriers/${id}/documents`, formData);
+    setCarrier(c => c ? { ...c, license_doc_uploaded: true } : c);
+  };
+
+  const viewVehicleDocument = async (vehicleId: string, kind: "photo" | "registration") => {
+    const blob = await api.getBlob(`/vehicles/${vehicleId}/documents/${kind}`);
+    window.open(URL.createObjectURL(blob), "_blank");
+  };
+
+  const uploadVehicleDocument = async (vehicleId: string, kind: "photo" | "registration", file: File) => {
+    const formData = new FormData();
+    formData.append("kind", kind);
+    formData.append("file", file);
+    await api.postForm(`/vehicles/${vehicleId}/documents`, formData);
+    setVehicles(vs => vs.map(v => v.id === vehicleId
+      ? { ...v, [kind === "photo" ? "photo_uploaded" : "registration_doc_uploaded"]: true }
+      : v));
   };
 
   if (loading) {
@@ -205,6 +281,24 @@ export default function FleetCarrierDetail() {
             ))}
           </div>
         )}
+      </div>
+
+      <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100">
+        <p className="text-xs font-bold text-slate-900 mb-1">Documents</p>
+        <p className="text-[10px] text-slate-500 mb-2.5">Requis pour la validation SEEDO.</p>
+        <div className="flex items-center gap-1.5 flex-wrap mb-1.5">
+          <DocBadge label="Permis du transporteur" ok={carrier.license_doc_uploaded} />
+          <DocAction label="le permis" uploaded={carrier.license_doc_uploaded} onView={viewCarrierDocument} onUpload={uploadCarrierDocument} />
+        </div>
+        {vehicles.map(v => (
+          <div key={v.id} className="flex items-center gap-1.5 flex-wrap mt-1.5 pt-1.5 border-t border-slate-100">
+            <span className="text-[9px] text-slate-400 shrink-0">{v.label || v.carrosserie} :</span>
+            <DocBadge label="Photo véhicule" ok={v.photo_uploaded} />
+            <DocAction label="la photo" uploaded={v.photo_uploaded} onView={() => viewVehicleDocument(v.id, "photo")} onUpload={f => uploadVehicleDocument(v.id, "photo", f)} />
+            <DocBadge label="Carte grise" ok={v.registration_doc_uploaded} />
+            <DocAction label="la carte grise" uploaded={v.registration_doc_uploaded} onView={() => viewVehicleDocument(v.id, "registration")} onUpload={f => uploadVehicleDocument(v.id, "registration", f)} />
+          </div>
+        ))}
       </div>
 
       <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100">

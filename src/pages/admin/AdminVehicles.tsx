@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { Truck, Check, Ban, Clock3, Hash, Loader2 } from "lucide-react";
-import { api } from "../../lib/api";
+import { Truck, Check, Ban, Clock3, Hash, Loader2, Eye, FileCheck2, FileX2 } from "lucide-react";
+import { api, ApiError } from "../../lib/api";
 
 interface Vehicle {
   id: string;
@@ -11,6 +11,8 @@ interface Vehicle {
   license_plate: string | null;
   label: string | null;
   status: "pending" | "active" | "suspended";
+  photo_uploaded: boolean;
+  registration_doc_uploaded: boolean;
 }
 
 const GABARIT_LABELS: Record<string, string> = {
@@ -19,11 +21,32 @@ const GABARIT_LABELS: Record<string, string> = {
   lourd: "Lourd (> 19t)",
 };
 
-function VehicleCard({ vehicle, onApprove, onSuspend }: {
+function DocBadge({ label, ok }: { label: string; ok: boolean }) {
+  return (
+    <span className={`inline-flex items-center gap-1 text-[9px] font-semibold px-1.5 py-0.5 rounded-full ${ok ? "bg-emerald-50 text-emerald-600" : "bg-red-50 text-red-600"}`}>
+      {ok ? <FileCheck2 className="h-2.5 w-2.5" /> : <FileX2 className="h-2.5 w-2.5" />} {label}
+    </span>
+  );
+}
+
+function VehicleCard({ vehicle, onApprove, onSuspend, error }: {
   vehicle: Vehicle;
   onApprove?: () => void;
   onSuspend?: () => void;
+  error?: string | null;
 }) {
+  const [viewing, setViewing] = useState<string | null>(null);
+
+  const viewDocument = async (kind: "photo" | "registration") => {
+    setViewing(kind);
+    try {
+      const blob = await api.getBlob(`/admin/vehicles/${vehicle.id}/documents/${kind}`);
+      window.open(URL.createObjectURL(blob), "_blank");
+    } finally {
+      setViewing(null);
+    }
+  };
+
   return (
     <div className="bg-white border border-slate-100 rounded-2xl p-4 shadow-sm flex items-start gap-3">
       <div className="w-11 h-11 rounded-xl bg-[#0B2A4A] flex items-center justify-center shrink-0">
@@ -34,6 +57,25 @@ function VehicleCard({ vehicle, onApprove, onSuspend }: {
         <p className="text-[11px] text-slate-500 mt-1">{vehicle.carrier_name} • {GABARIT_LABELS[vehicle.gabarit] ?? vehicle.gabarit}</p>
         <p className="text-[11px] text-slate-500">{vehicle.carrosserie} • {vehicle.capacity_weight_kg.toLocaleString("fr-FR")} kg</p>
         <p className="text-[11px] text-slate-400 flex items-center gap-1 mt-0.5"><Hash className="h-3 w-3" /> {vehicle.license_plate ?? "—"}</p>
+
+        <div className="flex items-center gap-1.5 mt-2 flex-wrap">
+          <DocBadge label="Photo véhicule" ok={vehicle.photo_uploaded} />
+          <DocBadge label="Carte grise" ok={vehicle.registration_doc_uploaded} />
+          {vehicle.photo_uploaded && (
+            <button onClick={() => viewDocument("photo")} disabled={viewing !== null}
+              className="flex items-center gap-1 text-[9px] font-semibold text-[#FF7A00]">
+              {viewing === "photo" ? <Loader2 className="h-2.5 w-2.5 animate-spin" /> : <Eye className="h-2.5 w-2.5" />} Voir photo
+            </button>
+          )}
+          {vehicle.registration_doc_uploaded && (
+            <button onClick={() => viewDocument("registration")} disabled={viewing !== null}
+              className="flex items-center gap-1 text-[9px] font-semibold text-[#FF7A00]">
+              {viewing === "registration" ? <Loader2 className="h-2.5 w-2.5 animate-spin" /> : <Eye className="h-2.5 w-2.5" />} Voir carte grise
+            </button>
+          )}
+        </div>
+
+        {error && <p className="text-[10px] text-red-600 mt-2">{error}</p>}
 
         {(onApprove || onSuspend) && (
           <div className="flex items-center gap-2 mt-3">
@@ -62,6 +104,7 @@ export default function AdminVehicles() {
   const [suspended, setSuspended] = useState<Vehicle[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [actionErrors, setActionErrors] = useState<Record<string, string>>({});
 
   const load = async () => {
     setLoading(true);
@@ -87,8 +130,13 @@ export default function AdminVehicles() {
   }, []);
 
   const setStatus = async (id: string, status: "active" | "suspended") => {
-    await api.patch(`/admin/vehicles/${id}/status`, { status });
-    await load();
+    setActionErrors(prev => ({ ...prev, [id]: "" }));
+    try {
+      await api.patch(`/admin/vehicles/${id}/status`, { status });
+      await load();
+    } catch (err) {
+      setActionErrors(prev => ({ ...prev, [id]: err instanceof ApiError ? err.message : "Action impossible." }));
+    }
   };
 
   if (loading) {
@@ -121,7 +169,7 @@ export default function AdminVehicles() {
         ) : (
           <div className="space-y-3">
             {pending.map(v => (
-              <VehicleCard key={v.id} vehicle={v} onApprove={() => setStatus(v.id, "active")} />
+              <VehicleCard key={v.id} vehicle={v} error={actionErrors[v.id]} onApprove={() => setStatus(v.id, "active")} />
             ))}
           </div>
         )}
@@ -134,7 +182,7 @@ export default function AdminVehicles() {
         ) : (
           <div className="space-y-3">
             {active.map(v => (
-              <VehicleCard key={v.id} vehicle={v} onSuspend={() => setStatus(v.id, "suspended")} />
+              <VehicleCard key={v.id} vehicle={v} error={actionErrors[v.id]} onSuspend={() => setStatus(v.id, "suspended")} />
             ))}
           </div>
         )}
@@ -145,7 +193,7 @@ export default function AdminVehicles() {
           <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider mb-2.5">Suspendus ({suspended.length})</h3>
           <div className="space-y-3">
             {suspended.map(v => (
-              <VehicleCard key={v.id} vehicle={v} onApprove={() => setStatus(v.id, "active")} />
+              <VehicleCard key={v.id} vehicle={v} error={actionErrors[v.id]} onApprove={() => setStatus(v.id, "active")} />
             ))}
           </div>
         </div>
