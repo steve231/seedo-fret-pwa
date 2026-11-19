@@ -42,6 +42,7 @@ export default function FleetCarrierNew() {
   const [form, setForm] = useState({
     name: "", phone: "", city: "",
     gabarit: "moyen", carrosserie: "bache", capacityWeightKg: "", label: "", licensePlate: "",
+    hasGps: false,
   });
   const [zones, setZones] = useState<ZoneEntry[]>([{ zone_type: "country", country_code: "BJ" }]);
   const [vehiclePhoto, setVehiclePhoto] = useState<File | null>(null);
@@ -101,6 +102,7 @@ export default function FleetCarrierNew() {
           capacity_weight_kg: Number(form.capacityWeightKg),
           license_plate: form.licensePlate || null,
           label: form.label || null,
+          has_gps: form.hasGps,
         });
       } catch (vehicleErr) {
         // Le transporteur a été créé mais pas son véhicule — on l'indique
@@ -206,6 +208,14 @@ export default function FleetCarrierNew() {
               placeholder="ex: Camion Bâché 15 Tonnes (Volvo FH)"
               className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm font-medium focus:ring-2 focus:ring-[#FF7A00] outline-none" />
           </div>
+          <label className="flex items-center gap-2.5 cursor-pointer bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5">
+            <input type="checkbox" checked={form.hasGps} onChange={e => setForm(f => ({ ...f, hasGps: e.target.checked }))}
+              className="w-4 h-4 accent-[#FF7A00] rounded cursor-pointer shrink-0" />
+            <span className="text-xs font-semibold text-slate-700">Véhicule équipé d'un traceur GPS</span>
+          </label>
+          <p className="text-[10px] text-slate-500 -mt-1">
+            Permet à ce véhicule d'être proposé sur les commandes exigeant un suivi GPS. Modifiable plus tard depuis sa fiche.
+          </p>
         </div>
 
         <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 space-y-3">

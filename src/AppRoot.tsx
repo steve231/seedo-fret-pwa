@@ -37,6 +37,7 @@ import FleetProfile from "./pages/fleet/FleetProfile";
 import AdminFleetManagers from "./pages/admin/AdminFleetManagers";
 import AdminVehicles from "./pages/admin/AdminVehicles";
 import AdminCarrierDocuments from "./pages/admin/AdminCarrierDocuments";
+import AdminSecurityTiers from "./pages/admin/AdminSecurityTiers";
 
 import Notifications from "./pages/shared/Notifications";
 import Support from "./pages/shared/Support";
@@ -94,6 +95,7 @@ export default function AppRoot() {
               <Route path="/admin/gestionnaires" element={<AdminFleetManagers />} />
               <Route path="/admin/vehicules" element={<AdminVehicles />} />
               <Route path="/admin/documents" element={<AdminCarrierDocuments />} />
+              <Route path="/admin/options-securite" element={<AdminSecurityTiers />} />
               <Route path="/admin/notifications" element={<Notifications />} />
             </Route>
           </Routes>

@@ -1,17 +1,24 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router";
-import { Route, Repeat2, Clock, ArrowLeft, ArrowRight, Navigation, Loader2, AlertCircle } from "lucide-react";
+import { Route, Repeat2, Clock, ArrowLeft, ArrowRight, Navigation, Loader2, AlertCircle, ShieldCheck } from "lucide-react";
 import { StepHeader } from "../../components/StepHeader";
 import { PlaceAutocomplete } from "../../components/PlaceAutocomplete";
 import { useShipment } from "../../state/ShipmentContext";
 import { getDrivingDistanceKm, findNearestHub, type PlaceResult } from "../../lib/geo";
 import { getHubs } from "../../lib/zones";
+import { getSecurityTiers, type SecurityTier } from "../../lib/securityTiers";
+import { formatFcfa } from "../../lib/pricing";
 
 export default function Step2Route() {
   const navigate = useNavigate();
   const { draft, update } = useShipment();
   const [computing, setComputing] = useState(false);
   const [distanceError, setDistanceError] = useState<string | null>(null);
+  const [securityTiers, setSecurityTiers] = useState<SecurityTier[]>([]);
+
+  useEffect(() => {
+    getSecurityTiers().then(setSecurityTiers).catch(() => {});
+  }, []);
 
   // Résout le hub le plus proche d'un lieu sélectionné, pour le matching
   // par corridor (zone d'action des transporteurs) — en plus du pays,
@@ -95,6 +102,31 @@ export default function Step2Route() {
           </div>
           <input type="checkbox" checked={draft.backhaul} onChange={e => update({ backhaul: e.target.checked })}
             className="w-4 h-4 accent-[#FF7A00] rounded cursor-pointer shrink-0" />
+        </div>
+      </div>
+
+      <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 space-y-2">
+        <h2 className="font-bold text-slate-900 flex items-center gap-2 text-sm">
+          <ShieldCheck className="h-4 w-4 text-[#FF7A00]" /> Niveau de suivi
+        </h2>
+        <p className="text-[10px] text-slate-500 -mt-1">Plus le niveau est élevé, plus le choix de transporteurs disponibles peut être réduit.</p>
+        <div className="space-y-2">
+          {securityTiers.map(tier => {
+            const selected = draft.securityTier === tier.code;
+            return (
+              <button key={tier.code} type="button"
+                onClick={() => update({ securityTier: tier.code, offers: null, quoteId: null })}
+                className={`w-full text-left p-3 rounded-xl border-2 transition ${selected ? "border-[#FF7A00] bg-orange-50" : "border-slate-200"}`}>
+                <div className="flex items-center justify-between">
+                  <span className={`text-xs font-bold ${selected ? "text-[#FF7A00]" : "text-slate-900"}`}>{tier.name}</span>
+                  <span className={`text-xs font-bold ${tier.surcharge_fcfa > 0 ? "text-slate-700" : "text-emerald-600"}`}>
+                    {tier.surcharge_fcfa > 0 ? `+${formatFcfa(tier.surcharge_fcfa)}` : "Inclus"}
+                  </span>
+                </div>
+                <p className="text-[10px] text-slate-500 mt-0.5">{tier.description}</p>
+              </button>
+            );
+          })}
         </div>
       </div>
 

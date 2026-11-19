@@ -1,5 +1,5 @@
 import type { LucideIcon } from "lucide-react";
-import { Truck, Boxes, Wallet, User, ClipboardList, CalendarClock, Users, IdCard, ShieldCheck, FileCheck2 } from "lucide-react";
+import { Truck, Boxes, Wallet, User, ClipboardList, CalendarClock, Users, IdCard, ShieldCheck, FileCheck2, Shield } from "lucide-react";
 
 export interface TabConfig {
   to: string;
@@ -19,6 +19,7 @@ export const ADMIN_TABS: TabConfig[] = [
   { to: "/admin/gestionnaires", label: "Gestionnaires de flotte", icon: ShieldCheck, match: p => p.startsWith("/admin/gestionnaires") },
   { to: "/admin/vehicules", label: "Véhicules", icon: Truck, match: p => p.startsWith("/admin/vehicules") },
   { to: "/admin/documents", label: "Documents transporteurs", icon: FileCheck2, match: p => p.startsWith("/admin/documents") },
+  { to: "/admin/options-securite", label: "Options de suivi", icon: Shield, match: p => p.startsWith("/admin/options-securite") },
 ];
 
 export const FLEET_TABS: TabConfig[] = [

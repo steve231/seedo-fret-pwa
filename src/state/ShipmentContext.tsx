@@ -17,6 +17,7 @@ export interface PriceBreakdown {
   tonnage_cost_fcfa: number;
   backhaul_discount_pct: number;
   deferred_payment_markup_pct: number;
+  security_surcharge_fcfa: number;
 }
 
 export interface ShipmentDraft {
@@ -42,6 +43,9 @@ export interface ShipmentDraft {
   when: "now" | "scheduled";
   scheduledAt: string;
   backhaul: boolean;
+  // Palier de sécurité choisi par l'expéditeur (déclaratif, GPS…) —
+  // référentiel géré par SEEDO, voir lib/securityTiers.ts.
+  securityTier: string;
   selectedOffer: OfferType;
 
   // Renseignés par le backend une fois la cotation calculée (POST /quote
@@ -71,6 +75,7 @@ const DEFAULT_DRAFT: ShipmentDraft = {
   when: "now",
   scheduledAt: "",
   backhaul: true,
+  securityTier: "declarative",
   selectedOffer: "standard",
   quoteId: null,
   offers: null,

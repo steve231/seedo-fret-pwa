@@ -38,6 +38,7 @@ interface Vehicle {
   status: "pending" | "active" | "suspended";
   photo_uploaded: boolean;
   registration_doc_uploaded: boolean;
+  has_gps: boolean;
 }
 
 function DocBadge({ label, ok }: { label: string; ok: boolean }) {
@@ -101,6 +102,7 @@ export default function FleetCarrierDetail() {
   const [zonesDraft, setZonesDraft] = useState<ZoneEntry[]>([]);
   const [savingZones, setSavingZones] = useState(false);
   const [zonesError, setZonesError] = useState<string | null>(null);
+  const [savingGps, setSavingGps] = useState<string | null>(null);
 
   useEffect(() => {
     if (!id) return;
@@ -174,6 +176,16 @@ export default function FleetCarrierDetail() {
     setVehicles(vs => vs.map(v => v.id === vehicleId
       ? { ...v, [kind === "photo" ? "photo_uploaded" : "registration_doc_uploaded"]: true }
       : v));
+  };
+
+  const toggleGps = async (vehicle: Vehicle) => {
+    setSavingGps(vehicle.id);
+    try {
+      await api.patch<Vehicle>(`/vehicles/${vehicle.id}/equipment`, { has_gps: !vehicle.has_gps, has_camera: false });
+      setVehicles(vs => vs.map(v => v.id === vehicle.id ? { ...v, has_gps: !v.has_gps } : v));
+    } finally {
+      setSavingGps(null);
+    }
   };
 
   if (loading) {
@@ -311,18 +323,26 @@ export default function FleetCarrierDetail() {
         ) : (
           <div className="space-y-2">
             {vehicles.map(v => (
-              <div key={v.id} className="flex items-center justify-between border border-slate-100 rounded-xl px-3 py-2">
-                <div>
-                  <p className="text-xs font-semibold text-slate-700">{v.label || `${v.carrosserie} ${v.capacity_weight_kg}kg`}</p>
-                  <p className="text-[10px] text-slate-400">{v.license_plate ?? "—"}</p>
+              <div key={v.id} className="border border-slate-100 rounded-xl px-3 py-2 space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs font-semibold text-slate-700">{v.label || `${v.carrosserie} ${v.capacity_weight_kg}kg`}</p>
+                    <p className="text-[10px] text-slate-400">{v.license_plate ?? "—"}</p>
+                  </div>
+                  <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full ${
+                    v.status === "active" ? "bg-emerald-50 text-emerald-600"
+                    : v.status === "pending" ? "bg-amber-50 text-amber-600"
+                    : "bg-red-50 text-red-600"
+                  }`}>
+                    {v.status === "active" ? "Validé" : v.status === "pending" ? "En validation" : "Suspendu"}
+                  </span>
                 </div>
-                <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full ${
-                  v.status === "active" ? "bg-emerald-50 text-emerald-600"
-                  : v.status === "pending" ? "bg-amber-50 text-amber-600"
-                  : "bg-red-50 text-red-600"
-                }`}>
-                  {v.status === "active" ? "Validé" : v.status === "pending" ? "En validation" : "Suspendu"}
-                </span>
+                <label className="flex items-center gap-1.5 cursor-pointer">
+                  <input type="checkbox" checked={v.has_gps} disabled={savingGps === v.id} onChange={() => toggleGps(v)}
+                    className="w-3.5 h-3.5 accent-[#FF7A00] rounded cursor-pointer shrink-0" />
+                  <span className="text-[10px] font-semibold text-slate-600">Équipé GPS</span>
+                  {savingGps === v.id && <Loader2 className="h-2.5 w-2.5 animate-spin text-slate-400" />}
+                </label>
               </div>
             ))}
           </div>

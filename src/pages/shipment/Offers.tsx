@@ -58,6 +58,7 @@ export default function Offers() {
           distance_km: draft.distanceKm,
           scheduled_at: draft.when === "scheduled" && draft.scheduledAt ? new Date(draft.scheduledAt).toISOString() : null,
           backhaul_requested: draft.backhaul,
+          security_tier: draft.securityTier,
         });
         const offersRes = await api.post<OffersResponse>("/offers", { quote_id: quote.id });
         if (cancelled) return;
@@ -157,6 +158,9 @@ export default function Offers() {
         <div className="flex justify-between"><span>Tonnage ({draft.weight}t) :</span><span className="font-semibold">{formatFcfa(b.tonnage_cost_fcfa)}</span></div>
         {draft.backhaul && b.backhaul_discount_pct > 0 && (
           <div className="flex justify-between text-amber-700 font-semibold"><span>Remise Backhaul :</span><span>-{b.backhaul_discount_pct}%</span></div>
+        )}
+        {b.security_surcharge_fcfa > 0 && (
+          <div className="flex justify-between text-slate-700 font-semibold"><span>Niveau de suivi :</span><span>+{formatFcfa(b.security_surcharge_fcfa)}</span></div>
         )}
         {draft.paymentMode === "deferred" && b.deferred_payment_markup_pct > 0 && (
           <div className="flex justify-between text-slate-500"><span>Majoration paiement différé :</span><span>+{b.deferred_payment_markup_pct}%</span></div>
